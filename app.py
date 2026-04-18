@@ -1,8 +1,12 @@
 import streamlit as st
 from groq import Groq
 
-# --- ページ設定 ---
-st.set_page_config(page_title="Evidence Prime Pro", layout="wide", page_icon="🧪")
+# --- 1. ページ設定（ここでアイコンファイルを指定します） ---
+st.set_page_config(
+    page_title="Evidence Prime Pro", 
+    layout="wide", 
+    page_icon="icon.png"  # ← GitHubに置いた icon.png を読み込みます
+)
 
 # --- デザイン調整 ---
 st.markdown("""
@@ -19,7 +23,6 @@ st.markdown("""
 # --- サイドバー ---
 with st.sidebar:
     st.title("🧪 Prime Pro")
-    # Googleの自動入力が効くようにパスワード形式の入力欄
     api_key = st.text_input("Groq API Keyを入力", type="password")
     
     st.divider()
@@ -58,7 +61,7 @@ if st.button("🚀 爆速分析を実行"):
                     model="llama-3.3-70b-versatile",
                 )
                 
-                # ✅ 修正：回答を正しく取り出す形式に変更
+                # 回答の取り出し
                 answer = chat_completion.choices[0].message.content
                 
                 st.markdown(answer)
@@ -67,5 +70,4 @@ if st.button("🚀 爆速分析を実行"):
                 st.link_button(f"📺 '{topic}' の解説動画を検索", f"https://youtube.com{topic}+科学")
 
         except Exception as e:
-            # 💡 エラー内容がわかりやすいように表示
             st.error(f"エラーが発生しました。\n(Error: {e})")
