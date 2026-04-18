@@ -4,13 +4,13 @@ from groq import Groq
 # 1. ページ基本設定
 st.set_page_config(page_title="Evidence Prime Pro", page_icon="🧬", layout="wide")
 
-# カスタムCSSでデザインを整える
+# カスタムCSS（エラーを修正済み：unsafe_allow_html=True）
 st.markdown("""
     <style>
     .main { background-color: #f0f2f6; }
     .stButton>button { width: 100%; border-radius: 10px; height: 3em; background-color: #007BFF; color: white; }
     </style>
-    """, unsafe_content_label=True)
+    """, unsafe_allow_html=True)
 
 # --- 2. 認証機能（合言葉） ---
 if "auth" not in st.session_state:
@@ -20,16 +20,13 @@ if not st.session_state.auth:
     st.title("🔑 Evidence Prime Pro")
     st.info("このアプリは招待制です。開発者から共有された合言葉を入力してください。")
     
-    # ログインフォーム
-    with st.container():
-        input_pwd = st.text_input("合言葉を入力", type="password")
-        if st.button("ログイン"):
-            if input_pwd == st.secrets["APP_PASSWORD"]:
-                st.session_state.auth = True
-                st.success("認証に成功しました！")
-                st.rerun()
-            else:
-                st.error("合言葉が正しくありません。")
+    input_pwd = st.text_input("合言葉を入力", type="password")
+    if st.button("ログイン"):
+        if input_pwd == st.secrets["APP_PASSWORD"]:
+            st.session_state.auth = True
+            st.rerun()
+        else:
+            st.error("合言葉が正しくありません。")
     st.stop()
 
 # --- 3. 精密性格診断（初回ログイン時のみ） ---
@@ -57,6 +54,11 @@ if "user_profile" not in st.session_state:
     st.stop()
 
 # --- 4. メイン分析機能（認証＆診断完了後に表示） ---
+# Secretsにキーがない場合のエラー回避
+if "GROQ_API_KEY" not in st.secrets:
+    st.error("Groq APIキーがSecretsに設定されていません。")
+    st.stop()
+
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 st.sidebar.title("👤 Your Profile")
