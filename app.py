@@ -1,81 +1,102 @@
 import streamlit as st
 from groq import Groq
 
-# ページ設定
-st.set_page_config(page_title="Evidence Prime Pro", page_icon="icon.png", layout="wide")
+# 1. ページ基本設定
+st.set_page_config(page_title="Evidence Prime Pro", page_icon="🧬", layout="wide")
 
-# --- 1. 認証機能（合言葉） ---
+# カスタムCSSでデザインを整える
+st.markdown("""
+    <style>
+    .main { background-color: #f0f2f6; }
+    .stButton>button { width: 100%; border-radius: 10px; height: 3em; background-color: #007BFF; color: white; }
+    </style>
+    """, unsafe_content_label=True)
+
+# --- 2. 認証機能（合言葉） ---
 if "auth" not in st.session_state:
     st.session_state.auth = False
 
 if not st.session_state.auth:
-    st.title("🔑 Evidence Prime Pro - 認証")
-    pwd = st.text_input("合言葉を入力してください", type="password")
-    if pwd == st.secrets["APP_PASSWORD"]:
-        st.session_state.auth = True
-        st.rerun()
-    elif pwd:
-        st.error("合言葉が違います。開発者に確認してください。")
+    st.title("🔑 Evidence Prime Pro")
+    st.info("このアプリは招待制です。開発者から共有された合言葉を入力してください。")
+    
+    # ログインフォーム
+    with st.container():
+        input_pwd = st.text_input("合言葉を入力", type="password")
+        if st.button("ログイン"):
+            if input_pwd == st.secrets["APP_PASSWORD"]:
+                st.session_state.auth = True
+                st.success("認証に成功しました！")
+                st.rerun()
+            else:
+                st.error("合言葉が正しくありません。")
     st.stop()
 
-# --- 2. 精密性格診断（初回のみ） ---
+# --- 3. 精密性格診断（初回ログイン時のみ） ---
 if "user_profile" not in st.session_state:
     st.title("🧠 パーソナル診断")
-    st.write("あなたに最適なエビデンスを届けるため、5つの質問に答えてください。")
+    st.write("科学的な分析結果をあなた専用にカスタマイズするため、5つの質問に答えてください。")
     
     with st.form("personality_form"):
-        st.subheader("あなたの傾向を教えてください")
-        q1 = st.select_slider("1. 予定はしっかり立てて動きたい", options=["全く違う", "やや違う", "普通", "まあそう", "超そう"])
-        q2 = st.select_slider("2. 新しい知識や効率化にワクワクする", options=["全く違う", "やや違う", "普通", "まあそう", "超そう"])
-        q3 = st.select_slider("3. 休日は外で活動的に過ごしたい", options=["全く違う", "やや違う", "普通", "まあそう", "超そう"])
-        q4 = st.select_slider("4. 正論よりも気持ちの納得感を大事にする", options=["全く違う", "やや違う", "普通", "まあそう", "超そう"])
-        q5 = st.select_slider("5. プレッシャーを感じやすい", options=["全く違う", "やや違う", "普通", "まあそう", "超そう"])
+        col1, col2 = st.columns(2)
+        with col1:
+            q1 = st.select_slider("1. 予定は事前にしっかり組みたい", options=["全く違う", "普通", "超そう"])
+            q2 = st.select_slider("2. 新しい効率化術を試すのが好きだ", options=["全く違う", "普通", "超そう"])
+        with col2:
+            q3 = st.select_slider("3. 週末はアクティブに動きたい", options=["全く違う", "普通", "超そう"])
+            q4 = st.select_slider("4. 正論よりも寄り添いを重視する", options=["全く違う", "普通", "超そう"])
         
-        gender = st.selectbox("性別", ["男性", "女性", "回答しない"])
+        q5 = st.select_slider("5. プレッシャーに強い方だ", options=["全く違う", "普通", "超そう"])
+        gender = st.radio("性別", ["男性", "女性", "回答しない"], horizontal=True)
         
-        if st.form_submit_button("診断を完了して分析を開始"):
+        if st.form_submit_button("診断を完了してアプリを開始"):
             st.session_state.user_profile = {
                 "planning": q1, "curiosity": q2, "activity": q3, "empathy": q4, "stress": q5, "gender": gender
             }
             st.rerun()
     st.stop()
 
-# --- 3. メイン分析機能 ---
+# --- 4. メイン分析機能（認証＆診断完了後に表示） ---
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-st.title("🧬 Evidence Prime Pro")
-st.sidebar.info(f"診断完了：{st.session_state.user_profile['gender']} / {st.session_state.user_profile['planning']}派")
+st.sidebar.title("👤 Your Profile")
+p = st.session_state.user_profile
+st.sidebar.write(f"タイプ: {p['gender']} / {p['planning']}派")
+if st.sidebar.button("診断をやり直す"):
+    del st.session_state.user_profile
+    st.rerun()
 
-query = st.text_input("分析したいトピックを入力してください（例：カフェインの摂取タイミング）")
+st.title("🧬 Evidence Prime Pro")
+query = st.text_input("知りたいトピックを入力してください", placeholder="例：朝のスムージーの効果、集中力を上げる方法など")
 
 if query:
-    with st.spinner("科学的エビデンスを抽出中..."):
-        # プロファイルに基づいたシステムプロンプトの作成
-        profile = st.session_state.user_profile
+    with st.spinner("Llama 3.3 70Bがエビデンスを精査中..."):
+        # プロファイルに基づいたパーソナライズ命令
+        tone = "共感重視で優しく" if p['empathy'] == "超そう" else "論理重視で端的に"
+        detail = "ステップバイステップの計画" if p['planning'] == "超そう" else "即効性のあるヒント"
+        
         system_prompt = f"""
-        あなたは科学的エビデンスに基づき、17歳の開発者のパートナーとして回答するAIです。
-        ユーザー属性: 性別:{profile['gender']}, 計画性:{profile['planning']}, 好奇心:{profile['curiosity']}, 共感性:{profile['empathy']}, メンタル耐性:{profile['stress']}
+        あなたは科学的エビデンスの専門家です。17歳の開発者のパートナーとして、以下のユーザーに最適化された回答をしてください。
         
-        以下の4構成で回答してください：
-        1. エビデンス・ティア表（信頼度順）
-        2. パーソナライズ・フローチャート（ユーザーの性格に合わせた手順）
-        3. 即実践できるライフハック
-        4. カレンダー連携案（計画性が高い場合は詳細に、低い場合はシンプルに）
+        【ユーザー情報】
+        性別: {p['gender']}, 計画性: {p['planning']}, 好奇心: {p['curiosity']}, メンタル耐性: {p['stress']}
         
-        トーン：{'共感重視' if profile['empathy'] in ['まあそう', '超そう'] else '結論重視'}で回答してください。
+        【回答ルール】
+        1. ティア表: 科学的根拠の強さをS〜Cでランク付け
+        2. フローチャート: {detail}をテキストで作成
+        3. ライフハック: ユーザーの性格に合わせた具体的なアドバイス
+        4. カレンダー案: 性格に合わせたスケジュール提案
+        
+        トーン: {tone}
         """
 
-        # Groq API呼び出し (Llama 3.3 70B)
         chat_completion = client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": query}
-            ],
+            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": query}],
             model="llama-3.3-70b-versatile",
         )
         
-        response = chat_completion.choices[0].message.content
-        st.markdown(response)
+        # 結果表示
+        st.markdown(chat_completion.choices.message.content)
         
-        # YouTubeリンクの自動生成
-        st.markdown(f"--- \n### 🎥 関連動画をチェック\n[YouTubeで「{query} エビデンス」を検索](https://youtube.com{query}+evidence)")
+        # YouTube検索リンク
+        st.markdown(f"--- \n### 🎥 関連動画をチェック\n[YouTubeで「{query} 科学」を検索](https://youtube.com{query}+科学)")
