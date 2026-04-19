@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 from groq import Groq
 
-# Plotlyのインポート
+# Plotlyのインポート（スマホ環境での安定性を重視）
 try:
     import plotly.express as px
     import plotly.graph_objects as go
@@ -13,12 +13,12 @@ try:
 except ImportError:
     PLOTLY_AVAILABLE = False
 
-# --- 1. 基本設定 ---
+# --- 1. 基本設定（スマホでの見やすさを最優先） ---
 st.set_page_config(
     page_title="Evidence Prime Pro",
     page_icon="🧬",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # --- 2. セキュリティ（合言葉認証） ---
@@ -26,24 +26,26 @@ def check_password():
     if st.session_state.get("authenticated"):
         return True
     
-    st.title("🔒 Evidence Prime Pro ゲート")
+    st.title("🔒 システムアクセス認証")
+    # Secretsから取得、なければデフォルト 'admin'
     target_pwd = st.secrets.get("password", "admin")
     
-    col1, col2, col3 = st.columns()
+    col1, col2, col3 = st.columns([1, 10, 1])
     with col2:
-        pwd = st.text_input("合言葉を入力", type="password")
-        if st.button("システム起動 🚀", use_container_width=True):
+        st.write("17yo Developer's Visionary AI")
+        pwd = st.text_input("合言葉（半角入力）", type="password")
+        if st.button("ログイン 🚀", use_container_width=True):
             if pwd == target_pwd:
                 st.session_state.authenticated = True
                 st.rerun()
             else:
-                st.error("認証失敗。")
+                st.error("合言葉が正しくありません。半角で入力してください。")
     st.stop()
 
 check_password()
 
 # --- 3. 記憶システム ---
-MEMORY_FILE = "user_memory_global.json"
+MEMORY_FILE = "user_memory_v3.json"
 
 def load_memory():
     if os.path.exists(MEMORY_FILE):
@@ -65,46 +67,51 @@ if "memory" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# --- 4. デザインエンジン ---
+# --- 4. デザインエンジン（スマホ最適化CSS） ---
 def apply_ui_theme():
-    st.sidebar.title("🛠️ Control Panel")
-    theme_choice = st.sidebar.select_slider("テーマ", options=["Cyber", "Ocean", "Forest", "Lava"])
-    palette = {"Cyber": "#6366f1", "Ocean": "#0ea5e9", "Forest": "#10b981", "Lava": "#f43f5e"}
-    main_color = palette[theme_choice]
+    # サイドバーはスマホでは閉じられているためデフォルト色を指定
+    main_color = "#6366f1" 
     
-    lang = st.sidebar.selectbox("Language", ["日本語", "English", "Korean", "Chinese"])
-    st.session_state.memory["language"] = lang
-
     st.markdown(f"""
         <style>
-        .stApp {{ background: radial-gradient(circle at top right, {main_color}15, #020617); color: #f1f5f9; }}
+        .stApp {{
+            background: radial-gradient(circle at top right, {main_color}15, #020617);
+            color: #f1f5f9;
+        }}
+        /* スマホの狭い画面でも文字を読みやすく */
         div[data-testid="stChatMessage"] {{
             background: rgba(255, 255, 255, 0.02);
-            border-left: 4px solid {main_color};
-            backdrop-filter: blur(10px);
-            border-radius: 15px; margin-bottom: 10px;
+            border-left: 3px solid {main_color};
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+            font-size: 15px;
         }}
-        .stButton>button {{ background: {main_color}aa; color: white; border-radius: 12px; border: none; width: 100%; }}
+        .stButton>button {{
+            background: {main_color}aa;
+            color: white; border-radius: 8px; border: none;
+            width: 100%; height: 3.5rem; /* スマホで押しやすいサイズ */
+        }}
         </style>
     """, unsafe_allow_html=True)
     return main_color
 
 main_color = apply_ui_theme()
 
-# --- 5. AIコア ---
+# --- 5. AIコア（AttributeError/空データ対策済み） ---
 def run_ai_agent():
     api_key = st.secrets.get("GROQ_API_KEY")
     if not api_key:
-        st.error("APIキー未設定。")
+        st.error("APIキーが設定されていません。")
         return None
     
     client = Groq(api_key=api_key)
     bf = st.session_state.memory["big_five"]
-    lang = st.session_state.memory["language"]
+    lang = st.session_state.memory.get("language", "日本語")
     
     system_prompt = f"""
-    あなたは『Evidence Prime Pro』です。言語は {lang} で回答してください。
-    【特性適応】外向:{bf['E']}, 協調:{bf['A']}, 勤勉:{bf['C']}, 繊細:{bf['N']}, 開放:{bf['O']}
+    あなたは『Evidence Prime Pro』です。日本語で回答してください。
+    ユーザー性格: 外向:{bf['E']}, 協調:{bf['A']}, 勤勉:{bf['C']}, 繊細:{bf['N']}, 開放:{bf['O']}
     科学的根拠(A)、図解(B)、性格適応(C)を徹底せよ。
     """
     
@@ -118,16 +125,16 @@ def run_ai_agent():
         st.error(f"AIエラー: {e}")
         return None
 
-# --- 6. メインインターフェース ---
+# --- 6. メインレイアウト ---
 def main():
-    tab_chat, tab_insight, tab_blueprint, tab_memory = st.tabs(["💬 Chat", "🧬 Insight", "📅 Plan", "📊 Bank"])
+    tab_chat, tab_insight, tab_blueprint = st.tabs(["💬 チャット", "🧬 分析", "📋 計画"])
 
     with tab_chat:
         st.title("Evidence Prime Pro")
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"])
 
-        if prompt := st.chat_input("課題を入力..."):
+        if prompt := st.chat_input("メッセージを入力..."):
             st.session_state.messages.append({"role": "user", "content": prompt})
             with st.chat_message("user"): st.markdown(prompt)
 
@@ -137,8 +144,8 @@ def main():
                 completion = run_ai_agent()
                 if completion:
                     for chunk in completion:
-                        # 修正ポイント: chunk.choices[0] 形式に変更
-                        if chunk.choices and len(chunk.choices) > 0:
+                        # 安全なデータアクセス
+                        if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
                             delta = chunk.choices[0].delta
                             if hasattr(delta, 'content') and delta.content:
                                 full_res += delta.content
@@ -147,40 +154,34 @@ def main():
                     st.session_state.messages.append({"role": "assistant", "content": full_res})
 
     with tab_insight:
-        st.subheader("🧬 科学的プロファイル分析")
+        st.subheader("🧬 科学的プロファイル")
         if PLOTLY_AVAILABLE:
             bf = st.session_state.memory["big_five"]
             fig = go.Figure(data=go.Scatterpolar(
                 r=[bf['E'], bf['A'], bf['C'], bf['N'], bf['O']],
-                theta=['外向性', '協調性', '勤勉性', '神経症', '開放性'], fill='toself', line_color=main_color
+                theta=['外向', '協調', '勤勉', '繊細', '開放'], fill='toself', line_color=main_color
             ))
-            fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 5])), paper_bgcolor='rgba(0,0,0,0)', font_color="white")
+            # 範囲を 0-5 に固定してエラー防止
+            fig.update_layout(
+                polar=dict(radialaxis=dict(visible=True, range=[0, 5])),
+                paper_bgcolor='rgba(0,0,0,0)', font_color="white", height=300
+            )
             st.plotly_chart(fig, use_container_width=True)
 
+        st.divider()
+        # スライダーの選択肢をリストで定義
         opts = [1, 2, 3, 4, 5]
-        col1, col2 = st.columns(2)
-        with col1:
-            e = st.select_slider("外向性", options=opts, value=bf['E'])
-            a = st.select_slider("協調性", options=opts, value=bf['A'])
-            c = st.select_slider("勤勉性", options=opts, value=bf['C'])
-        with col2:
-            n = st.select_slider("神経症傾向", options=opts, value=bf['N'])
-            o = st.select_slider("開放性", options=opts, value=bf['O'])
+        e = st.select_slider("外向性", options=opts, value=bf['E'])
+        c = st.select_slider("勤勉性", options=opts, value=bf['C'])
         
-        if st.button("プロファイルを同期 🧠"):
-            st.session_state.memory["big_five"] = {"E":e, "A":a, "C":c, "N":n, "O":o}
+        if st.button("AIに同期 🧠"):
+            st.session_state.memory["big_five"].update({"E":e, "C":c})
             save_memory()
             st.success("同期完了！")
 
     with tab_blueprint:
-        st.header("📅 アクションプラン")
-        st.info("対話を通じて生成された計画が表示されます。")
-
-    with tab_memory:
-        st.json(st.session_state.memory)
-        if st.button("リセット"):
-            st.session_state.memory = load_memory()
-            st.rerun()
+        st.header("📋 プランニング")
+        st.info("対話を開始すると、ここに計画が構築されます。")
 
 if __name__ == "__main__":
     main()
