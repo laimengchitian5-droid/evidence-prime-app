@@ -781,21 +781,6 @@ def render_workspace_sidebar():
     st.sidebar.markdown("---")
     st.sidebar.subheader("🚀 My Workspaces")
     
-    # タブ一覧ボタンの描画
-    for t_name in list(st.session_state.tabs.keys()):
-        # カラムをリストとして取得
-        cols = st.sidebar.columns([0.8, 0.2])
-        
-        # cols[0] = 左側のメインボタン, cols[1] = 右側の削除ボタン
-        if cols[0].button(f"📂 {t_name}", key=f"sel_{t_name}", use_container_width=True):
-            st.session_state.active_tab = t_name
-            st.rerun()
-            
-        if t_name != "Main":
-            if cols[1].button("🗑️", key=f"del_{t_name}"):
-                del st.session_state.tabs[t_name]
-                st.session_state.active_tab = "Main"
-                st.rerun()
 
 def save_persistence_data():
     """全スレッド状態を JSON に物理保存"""
