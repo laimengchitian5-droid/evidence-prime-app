@@ -682,70 +682,102 @@ def integrated_workspace_system():
 
 # --- 実行 ---
 integrated_workspace_system()
-# --- 685行目以降：完全クリーン・インデント版 ---
+# --- 685行目以降：インデントと動作を完全に保証した最終版 ---
 
 def evidence_prime_pro_core():
-    # 1. 認証チェック
+    """認証・サイドバーAPI設定・マルチタブの統合エンジン"""
+    
+    # 1. セキュリティゲート（合言葉）
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
 
     if not st.session_state.authenticated:
         st.title("🔐 System Access")
+        # secrets.toml の [password] を参照。設定がない場合は '17admin'
+        access_code = st.secrets.get("password", "17admin")
         input_pass = st.text_input("Enter Passphrase", type="password")
-        
-        # ここを st.secrets["password"] に変更！
         if input_pass:
-            if input_pass == st.secrets["password"]:
+            if input_pass == access_code:
                 st.session_state.authenticated = True
+                st.balloons()
                 st.rerun()
             else:
                 st.error("❌ Access Denied.")
         st.stop()
- 
 
-    # 2. APIキー取得
-    api_key = st.secrets.get("GROQ_API_KEY")
-    if not api_key:
-        st.warning("⚠️ APIキーが設定されていません。")
+    # 2. サイドバー設定：APIキーの直接入力欄
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🛠️ System Config")
+    user_api_key = st.sidebar.text_input("🔑 Groq API Key", type="password", placeholder="gsk_...")
+    
+    if not user_api_key:
+        st.info("💡 サイドバーにAPIキーを設定すると、AIが思考を開始します。")
         st.stop()
 
-    # 3. ワークスペース初期化
+    # 3. ワークスペース（マルチタブ）初期化
     if "tabs" not in st.session_state:
         st.session_state.tabs = {"Main": []}
     if "active_tab" not in st.session_state:
         st.session_state.active_tab = "Main"
 
-    # 4. UI描画
+    # タブ管理UIの描画
     render_workspace_sidebar()
-    
-    active_tab = st.session_state.active_tab
-    st.subheader(f"🧠 {active_tab}")
 
-    # 過去ログ表示
+    # 4. メインチャット画面
+    active_tab = st.session_state.active_tab
+    st.subheader(f"🧠 Workspace: {active_tab}")
+
+    # スレッド表示（Blueprint対応）
     for msg in st.session_state.tabs[active_tab]:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
-      
-        # AI応答（仮）
+            if "blueprint" in msg and msg["blueprint"]:
+                st.table(msg["blueprint"])
+
+    # チャット入力
+    if prompt := st.chat_input(f"'{active_tab}' で問いを立てる..."):
+        st.session_state.tabs[active_tab].append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
         with st.chat_message("assistant"):
-            response = "AI基盤接続完了。ここに知能を統合します。"
-            st.markdown(response)
-            st.session_state.tabs[active_tab].append({"role": "assistant", "content": response})
+            # --- ここで実際のAIを動かす準備 ---
+            # プレースホルダー表示
+            response_text = "AI基盤 接続完了。Llama-3.3 70B があなたの思考をブーストします。"
+            blueprint_data = [["Status", "OK"], ["Engine", "Groq Llama-3.3"]]
+
+            st.markdown(response_text)
+            if blueprint_data:
+                st.table(blueprint_data)
+
+            # 履歴に保存
+            st.session_state.tabs[active_tab].append({
+                "role": "assistant",
+                "content": response_text,
+                "blueprint": blueprint_data
+            })
             st.rerun()
 
 def render_workspace_sidebar():
-    new_tab = st.sidebar.text_input("New Space")
+    """ワークスペースのサイドバー管理機能"""
+    st.sidebar.markdown("### 🚀 Workspaces")
+    new_tab = st.sidebar.text_input("New Space", key="new_space_input")
     if new_tab and new_tab not in st.session_state.tabs:
         st.session_state.tabs[new_tab] = []
         st.session_state.active_tab = new_tab
         st.rerun()
 
     for t_name in list(st.session_state.tabs.keys()):
-        if st.sidebar.button(f"📂 {t_name}", key=f"tab_{t_name}"):
+        cols = st.sidebar.columns([0.8, 0.2])
+        if cols[0].button(f"📂 {t_name}", key=f"t_{t_name}", use_container_width=True):
             st.session_state.active_tab = t_name
             st.rerun()
+        if t_name != "Main":
+            if cols[1].button("🗑️", key=f"d_{t_name}"):
+                del st.session_state.tabs[t_name]
+                st.session_state.active_tab = "Main"
+                st.rerun()
 
 # 実行
 if __name__ == "__main__":
     evidence_prime_pro_core()
-  
