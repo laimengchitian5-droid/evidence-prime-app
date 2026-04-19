@@ -781,13 +781,6 @@ def render_workspace_sidebar():
     st.sidebar.markdown("---")
     st.sidebar.subheader("🚀 My Workspaces")
     
-    # 新規タブ作成
-    new_tab = st.sidebar.text_input("New Space", key="tab_creator", placeholder="Name and press Enter")
-    if new_tab and new_tab not in st.session_state.tabs:
-        st.session_state.tabs[new_tab] = []
-        st.session_state.active_tab = new_tab
-        st.rerun()
-
     # タブ一覧ボタンの描画
     for t_name in list(st.session_state.tabs.keys()):
         # カラムをリストとして取得
