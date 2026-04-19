@@ -516,3 +516,76 @@ def apply_dynamic_theme(color, opacity):
 # --- 実行 ---
 if st.session_state.get("authenticated"):
     render_appearance_settings()
+# ==========================================
+# MODULE 8: GLOBAL LOCALIZATION (80+ Languages)
+# ==========================================
+
+def render_language_settings():
+    """
+    80言語以上から選択し、アプリ全体と言語モデルの出力を同期する
+    """
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🌐 グローバル設定 (Language)")
+
+    # 主要言語とISOコードのリスト（代表的なものを抜粋し、その他を網羅）
+    lang_options = {
+        "日本語": "Japanese", "English": "English", "한국어": "Korean", 
+        "中文 (简体)": "Chinese (Simplified)", "中文 (繁體)": "Chinese (Traditional)",
+        "Español": "Spanish", "Français": "French", "Deutsch": "German",
+        "Italiano": "Italian", "Português": "Portuguese", "Русский": "Russian",
+        "العربية": "Arabic", "हिन्दी": "Hindi", "Tiếng Việt": "Vietnamese",
+        "ไทย": "Thai", "Bahasa Indonesia": "Indonesian", "Türkçe": "Turkish",
+        "Polski": "Polish", "Nederlands": "Dutch", "Svenska": "Swedish"
+    }
+    
+    # 80言語以上をカバーするための補完（一般名称リスト）
+    additional_langs = [
+        "Afrikaans", "Albanian", "Amharic", "Armenian", "Azerbaijani", "Basque", 
+        "Belarusian", "Bengali", "Bosnian", "Bulgarian", "Catalan", "Cebuano", 
+        "Chichewa", "Corsican", "Croatian", "Czech", "Danish", "Esperanto", 
+        "Estonian", "Filipino", "Finnish", "Frisian", "Galician", "Georgian", 
+        "Greek", "Gujarati", "Haitian Creole", "Hausa", "Hawaiian", "Hebrew", 
+        "Hmong", "Hungarian", "Icelandic", "Igbo", "Irish", "Javanese", "Kannada", 
+        "Kazakh", "Khmer", "Kinyarwanda", "Kurdish", "Kyrgyz", "Lao", "Latin", 
+        "Latvian", "Lithuanian", "Luxembourgish", "Macedonian", "Malagasy", "Malay", 
+        "Malayalam", "Maltese", "Maori", "Marathi", "Mongolian", "Myanmar (Burmese)", 
+        "Nepali", "Norwegian", "Odia (Oriya)", "Pashto", "Persian", "Punjabi", 
+        "Romanian", "Samoan", "Scots Gaelic", "Serbian", "Sesotho", "Shona", 
+        "Sindhi", "Sinhala", "Slovak", "Slovenian", "Somali", "Sundanese", 
+        "Swahili", "Tajik", "Tamil", "Tatar", "Telugu", "Turkmen", "Ukrainian", 
+        "Urdu", "Uyghur", "Uzbek", "Welsh", "Xhosa", "Yiddish", "Yoruba", "Zulu"
+    ]
+    
+    for al in additional_langs:
+        if al not in lang_options.values():
+            lang_options[al] = al
+
+    # セッション状態から現在の言語を取得
+    current_lang = st.session_state.memory.get("selected_language", "日本語")
+    
+    # セレクトボックスで言語を選択
+    selected_lang_label = st.sidebar.selectbox(
+        "システム言語を選択",
+        options=list(lang_options.keys()),
+        index=list(lang_options.keys()).index(current_lang) if current_lang in lang_options else 0
+    )
+    
+    selected_lang_name = lang_options[selected_lang_label]
+
+    if selected_lang_label != current_lang:
+        st.session_state.memory["selected_language"] = selected_lang_label
+        st.session_state.memory["target_lang_name"] = selected_lang_name
+        save_memory(st.session_state.memory)
+        st.toast(f"Language set to {selected_lang_label}", icon="🌐")
+        st.rerun()
+
+# --- AIプロンプトエンジンへの統合（重要） ---
+# run_ai_agent 内の system_prompt 生成部分に以下を組み込む
+
+def get_localized_system_instruction():
+    target = st.session_state.memory.get("target_lang_name", "Japanese")
+    return f"重要：全ての回答、行動計画、および分析コメントは必ず『{target}』で出力してください。"
+
+# --- 実行 ---
+if st.session_state.get("authenticated"):
+    render_language_settings()
