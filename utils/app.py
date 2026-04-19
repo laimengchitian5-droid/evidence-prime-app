@@ -734,7 +734,6 @@ def evidence_prime_pro_core():
             st.rerun()
 
 def render_workspace_sidebar():
-    st.sidebar.subheader("🚀 Workspaces")
     new_tab = st.sidebar.text_input("New Space")
     if new_tab and new_tab not in st.session_state.tabs:
         st.session_state.tabs[new_tab] = []
