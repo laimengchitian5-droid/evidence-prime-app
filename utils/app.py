@@ -430,3 +430,89 @@ def render_comparison_analysis():
 run_big_five_diagnostic()
 # render_big_five_radar() は Module 5 をそのまま使用可能
 # render_comparison_analysis() は分析タブで使用
+# ==========================================
+# MODULE 7: APPEARANCE CUSTOMIZER (v4.6)
+# ==========================================
+
+def render_appearance_settings():
+    """
+    画像のUIを参考に、背景色とアクセントカラーを動的に変更する設定画面
+    """
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🎨 外観カスタマイズ")
+    
+    # 1. プリセット・パレット (画像下部のドットを再現)
+    st.sidebar.caption("クイック・パレット")
+    presets = {
+        "Deep Black": "#000000", "Royal Blue": "#6366f1",
+        "Neon Pink": "#ff007c", "Forest": "#10b981",
+        "Lava": "#f43f5e", "Amber": "#fbbf24"
+    }
+    
+    # 横並びのボタンでプリセット選択
+    cols = st.sidebar.columns(len(presets))
+    for i, (name, hex_code) in enumerate(presets.items()):
+        if cols[i].button("●", help=name, key=f"pre_{i}", type="secondary"):
+            st.session_state.memory["theme_color"] = hex_code
+            save_memory(st.session_state.memory)
+            st.rerun()
+
+    # 2. 詳細カラーピッカー (画像中央のGrid/Slider概念を統合)
+    current_color = st.session_state.memory.get("theme_color", "#6366f1")
+    
+    with st.sidebar.expander("詳細な色設定"):
+        new_color = st.color_picker("メインカラーを選択", value=current_color)
+        opacity = st.slider("背景の不透明度 (Opacity)", 0, 100, 30)
+        
+        if new_color != current_color:
+            st.session_state.memory["theme_color"] = new_color
+            save_memory(st.session_state.memory)
+            st.rerun()
+
+    # 3. 動的CSSエンジン (モジュール内完結)
+    apply_dynamic_theme(new_color, opacity)
+
+def apply_dynamic_theme(color, opacity):
+    """
+    選択された色に基づき、グラスモーフィズムCSSをリアルタイム生成
+    """
+    # 16進数をRGBAに変換して不透明度を適用
+    alpha = hex(int(opacity * 2.55))[2:].zfill(2) # 0-100を00-ffに変換
+    
+    st.markdown(f"""
+        <style>
+        /* 背景：画像のような深い階調のグラデーション */
+        .stApp {{
+            background: radial-gradient(circle at top right, {color}{alpha}, #020617);
+            background-attachment: fixed;
+        }}
+        
+        /* チャットバブル：選択色をアクセントに使用 */
+        div[data-testid="stChatMessage"] {{
+            border-left: 4px solid {color} !important;
+            background: rgba(255, 255, 255, 0.03);
+            box-shadow: 0 4px 15px {color}11;
+        }}
+        
+        /* サイドバー：画像のデザインを意識したダークトーン */
+        [data-testid="stSidebar"] {{
+            background-color: #0f172a !important;
+            border-right: 1px solid {color}33;
+        }}
+        
+        /* ボタン：ネオン効果の追加 */
+        .stButton>button {{
+            border: 1px solid {color} !important;
+            color: white !important;
+            background: {color}44 !important;
+        }}
+        .stButton>button:hover {{
+            background: {color} !important;
+            box-shadow: 0 0 20px {color}88;
+        }}
+        </style>
+    """, unsafe_allow_html=True)
+
+# --- 実行 ---
+if st.session_state.get("authenticated"):
+    render_appearance_settings()
