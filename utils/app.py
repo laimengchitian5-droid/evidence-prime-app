@@ -700,7 +700,7 @@ def evidence_prime_pro_core():
         with col2:
             input_pass = st.text_input("Enter Passphrase", type="password", help="17歳の開発者が設定した合言葉を入力してください")
             if input_pass:
-                input_pass == st.secrets["absolute_proof"]:
+            if   input_pass == st.secrets["absolute_proof"]:
                     st.session_state.authenticated = True
                     st.success("✅ Identity Verified. Core Systems Online.")
                     st.balloons()
