@@ -57,8 +57,8 @@ def check_password():
 
 check_password()
 
-# --- 3. 記憶システム ---
-MEMORY_FILE = "user_memory_v2.json"
+# --- 3. 記憶システム (A-Cモデル) ---
+MEMORY_FILE = "user_memory_v3.json"
 
 def load_memory():
     if os.path.exists(MEMORY_FILE):
@@ -80,7 +80,7 @@ if "memory" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# --- 4. デザインエンジン ---
+# --- 4. デザインエンジン（グラスモーフィズム） ---
 def apply_ui_theme():
     st.sidebar.title("🛠️ システム制御板")
     theme_choice = st.sidebar.select_slider(
@@ -116,10 +116,10 @@ def apply_ui_theme():
 
 main_color = apply_ui_theme()
 
-# --- 5. 解析エンジン (修正済み) ---
+# --- 5. 解析エンジン (Plotly) ---
 def render_analysis_tab():
     if not PLOTLY_AVAILABLE:
-        st.warning("解析エンジンをロード中...")
+        st.warning("解析エンジンが未ロードです。")
         return
 
     st.subheader("📊 性格・成長分析")
@@ -134,7 +134,6 @@ def render_analysis_tab():
             r=values, theta=categories, fill='toself',
             line=dict(color=main_color), marker=dict(color=main_color)
         ))
-        # range=[1, 5] を明記してバグを修正
         fig_radar.update_layout(
             polar=dict(radialaxis=dict(visible=True, range=[1, 5], gridcolor="#334155"), bgcolor="rgba(0,0,0,0)"),
             paper_bgcolor='rgba(0,0,0,0)', font_color="#f1f5f9"
@@ -148,20 +147,25 @@ def render_analysis_tab():
         fig_line.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="#f1f5f9")
         st.plotly_chart(fig_line, use_container_width=True)
 
-# --- 6. AIコア ---
-def run_ai_agent(user_input):
+# --- 6. AIコア (AttributeError 修正済みロジック) ---
+def run_ai_agent():
     api_key = st.secrets.get("GROQ_API_KEY")
     if not api_key:
-        st.error("GROQ_API_KEY が設定されていません。")
+        st.error("APIキーが設定されていません。")
         return None
     
     client = Groq(api_key=api_key)
     bf = st.session_state.memory["big_five"]
     
+    # 性格に合わせたプロンプト戦略
+    c_strategy = "詳細なTODOリスト" if bf['C'] >= 4 else "スモールステップ"
+    n_strategy = "優しく共感的" if bf['N'] >= 4 else "合理的で冷静"
+    
     system_prompt = f"""
     あなたは『Evidence Prime Pro』です。
     ユーザー性格特性: 外向性:{bf['E']}, 協調性:{bf['A']}, 勤勉性:{bf['C']}, 神経症傾向:{bf['N']}, 開放性:{bf['O']}
     上記特性に基づき、科学的根拠(A)、図解(B)、性格適応(C)を徹底して日本語で回答せよ。
+    現在の返答トーン: {c_strategy} かつ {n_strategy} なスタイルで。
     """
     
     try:
@@ -179,23 +183,26 @@ def main():
     tab_chat, tab_insight, tab_blueprint, tab_core = st.tabs(["💬 対話", "🧬 分析", "📋 計画", "⚙️ 管理"])
 
     with tab_chat:
+        st.title("Evidence Prime Pro")
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"])
 
-        if prompt := st.chat_input("課題を入力..."):
+        if prompt := st.chat_input("課題を入力してください..."):
             st.session_state.messages.append({"role": "user", "content": prompt})
             with st.chat_message("user"): st.markdown(prompt)
 
             with st.chat_message("assistant"):
                 res_box = st.empty()
                 full_res = ""
-                completion = run_ai_agent(prompt)
+                completion = run_ai_agent()
                 if completion:
                     for chunk in completion:
-                        content = chunk.choices.delta.content
-                        if content:
-                            full_res += content
-                            res_box.markdown(full_res + "▌")
+                        # choicesが存在し、かつ内容があるかを確認（AttributeError対策）
+                        if hasattr(chunk, 'choices') and chunk.choices:
+                            delta = chunk.choices[0].delta
+                            if hasattr(delta, 'content') and delta.content:
+                                full_res += delta.content
+                                res_box.markdown(full_res + "▌")
                     res_box.markdown(full_res)
                     st.session_state.messages.append({"role": "assistant", "content": full_res})
 
@@ -212,20 +219,24 @@ def main():
             n = st.select_slider("神経症傾向", options=opts, value=bf['N'])
             o = st.select_slider("開放性", options=opts, value=bf['O'])
         
-        if st.button("プロファイルを同期"):
+        if st.button("プロファイルを同期", use_container_width=True):
             st.session_state.memory["big_five"] = {"E": e, "A": a, "C": c, "N": n, "O": o}
             save_memory()
             st.success("同期完了！AIがあなたに合わせて進化しました。")
 
     with tab_blueprint:
         st.header("📋 構造化プラン")
-        st.table(pd.DataFrame([{"項目": "データなし", "詳細": "チャットで計画を生成してください"}]))
+        st.info("チャットで生成された計画がここに反映されます。")
+        st.table(pd.DataFrame([{"項目": "データ解析", "内容": "準備中", "優先度": "高"}]))
 
     with tab_core:
         st.json(st.session_state.memory)
         if st.button("リセット"):
             st.session_state.memory = load_memory()
             st.rerun()
+
+    st.sidebar.markdown("---")
+    st.sidebar.caption("Evidence Prime Pro v3.5 | 開発: 17yo Visionary")
 
 if __name__ == "__main__":
     main()
