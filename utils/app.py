@@ -682,19 +682,75 @@ def integrated_workspace_system():
 
 # --- 実行 ---
 integrated_workspace_system()
+# --- 685行目以降：完全クリーン・インデント版 ---
+
+def evidence_prime_pro_core():
+    # 1. 認証チェック
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+
     if not st.session_state.authenticated:
-        st.markdown("<h1 style='text-align: center;'>🔐 System Access</h1>", unsafe_allow_html=True)
-        # 画面中央に配置
-        _, col2, _ = st.columns([1, 2, 1])
-        with col2:
-            input_pass = st.text_input("Enter Passphrase", type="password", key="auth_input")
-            
-            # secretsにある 'absolute_proof' を直接見に行く
-            if input_pass:
-                if input_pass == st.secrets["absolute_proof"]:
-                    st.session_state.authenticated = True
-                    st.balloons()
-                    st.rerun()
-                else:
-                    st.error("❌ Access Denied.")
+        st.title("🔐 System Access")
+        input_pass = st.text_input("Enter Passphrase", type="password")
+        # secrets.toml の absolute_proof と比較
+        if input_pass:
+            if input_pass == st.secrets["absolute_proof"]:
+                st.session_state.authenticated = True
+                st.rerun()
+            else:
+                st.error("❌ Access Denied.")
         st.stop()
+
+    # 2. APIキー取得
+    api_key = st.secrets.get("GROQ_API_KEY")
+    if not api_key:
+        st.warning("⚠️ APIキーが設定されていません。")
+        st.stop()
+
+    # 3. ワークスペース初期化
+    if "tabs" not in st.session_state:
+        st.session_state.tabs = {"Main": []}
+    if "active_tab" not in st.session_state:
+        st.session_state.active_tab = "Main"
+
+    # 4. UI描画
+    render_workspace_sidebar()
+    
+    active_tab = st.session_state.active_tab
+    st.subheader(f"🧠 {active_tab}")
+
+    # 過去ログ表示
+    for msg in st.session_state.tabs[active_tab]:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
+    # 入力欄
+    if prompt := st.chat_input("問いを立てる..."):
+        st.session_state.tabs[active_tab].append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        
+        # AI応答（仮）
+        with st.chat_message("assistant"):
+            response = "AI基盤接続完了。ここに知能を統合します。"
+            st.markdown(response)
+            st.session_state.tabs[active_tab].append({"role": "assistant", "content": response})
+            st.rerun()
+
+def render_workspace_sidebar():
+    st.sidebar.subheader("🚀 Workspaces")
+    new_tab = st.sidebar.text_input("New Space")
+    if new_tab and new_tab not in st.session_state.tabs:
+        st.session_state.tabs[new_tab] = []
+        st.session_state.active_tab = new_tab
+        st.rerun()
+
+    for t_name in list(st.session_state.tabs.keys()):
+        if st.sidebar.button(f"📂 {t_name}", key=f"tab_{t_name}"):
+            st.session_state.active_tab = t_name
+            st.rerun()
+
+# 実行
+if __name__ == "__main__":
+    evidence_prime_pro_core()
+  
