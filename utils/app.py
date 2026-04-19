@@ -257,22 +257,26 @@ def execute_groq_chat(user_input):
 # if prompt := st.chat_input(...):
 #     execute_groq_chat(prompt)
 # ==========================================
-# MODULE 5: VISUAL INSIGHT ENGINE (最終安定版)
+# MODULE 5: VISUAL INSIGHT ENGINE (修正版)
 # ==========================================
 
 def render_big_five_radar():
     """
-    ユーザーのBig Fiveデータを画像のデザイン通りに可視化（ダブルチェック済み）
+    Big Fiveデータを可視化（インポートエラーと変数未定義を完全に防ぐ）
     """
-    if not PLOTLY_AVAILABLE:
-        st.warning("可視化エンジン(Plotly)をロードできません。")
+    # 内部での再チェック（PLOTLY_AVAILABLEが定義されていない場合への備え）
+    try:
+        import plotly.graph_objects as go
+    except ImportError:
+        st.warning("可視化エンジン(Plotly)がインストールされていません。")
         return
 
     st.subheader("📊 パーソナリティ・構造分析")
     
-    # メモリからデータを取得（C: Context）
+    # メモリとカラーの安全な取得
     bf = st.session_state.memory.get("big_five", {"E":3, "A":3, "C":3, "N":3, "O":3})
-    
+    current_color = "#6366f1" # デフォルト色（main_color未定義対策）
+
     # 頂点を「開放性」にし、画像通り時計回りに配置
     categories = ['開放性', '神経症傾向', '協調性', '外向性', '勤勉性']
     values = [
@@ -287,9 +291,9 @@ def render_big_five_radar():
         r=values + [values[0]], # 閉じた図形にする
         theta=categories + [categories[0]],
         fill='toself',
-        line=dict(color=main_color, width=3),
-        fillcolor=f"{main_color}33",
-        marker=dict(size=10, color=main_color)
+        line=dict(color=current_color, width=3),
+        fillcolor="rgba(99, 102, 241, 0.3)", # 安定した色指定
+        marker=dict(size=10, color=current_color)
     ))
 
     fig.update_layout(
@@ -312,22 +316,20 @@ def render_big_five_radar():
         showlegend=False,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        height=400, # スマホ最適化サイズ
+        height=400,
         margin=dict(l=40, r=40, t=40, b=40)
     )
 
     # グラフ表示
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
-    # --- 数値メトリクス (スマホで見やすい5カラム) ---
+    # --- 数値メトリクス ---
     st.markdown("---")
     m_cols = st.columns(5)
-    labels = ["O", "N", "A", "E", "C"]
-    for i, (lbl, val) in enumerate(zip(labels, values)):
+    labels_short = ["O", "N", "A", "E", "C"]
+    for i, (lbl, val) in enumerate(zip(labels_short, values)):
         m_cols[i].metric(lbl, val)
 
-# 実行（基盤の main() 内で呼び出し）
-render_big_five_radar()
-
-st.sidebar.markdown("---")
-st.sidebar.success("✅ ダブルチェック完了: 安定稼働中")
+# モジュールの呼び出し（安全な実行）
+if st.session_state.get("authenticated"):
+    render_big_five_radar()
