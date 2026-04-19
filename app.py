@@ -1,137 +1,157 @@
 import streamlit as st
 from groq import Groq
 import urllib.parse
+import json
 
 # --- 1. ページ基本設定 ---
 st.set_page_config(page_title="Evidence Prime Pro", page_icon="🧬", layout="wide")
 
-# --- 2. カスタムCSS（見た目の強化） ---
-st.markdown("""
-    <style>
-    .main { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); }
-    .stButton>button { border-radius: 20px; transition: all 0.3s; border: none; background: #4A90E2; color: white; width: 100%; }
-    .stButton>button:hover { transform: scale(1.02); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-    .stChatFloatingInputContainer { background-color: rgba(255,255,255,0.8); }
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- 3. セッション状態の初期化 ---
+# --- 2. セッション状態の初期化 ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "personality" not in st.session_state:
-    st.session_state.personality = {"status": "未診断", "logic": "標準", "openness": "普通"}
+    st.session_state.personality = {"status": "未診断"}
 if "auth" not in st.session_state:
     st.session_state.auth = False
 
-# --- 4. 認証機能 ---
+# --- 3. テーマ・見た目の設定 (サイドバー) ---
+with st.sidebar:
+    st.title("🎨 UI Customizer")
+    main_color = st.color_picker("メインカラーを選択", "#4A90E2")
+    bg_type = st.radio("背景スタイル", ["グラデーション", "シンプル", "ダーク"])
+    
+    # 背景スタイルの定義
+    if bg_type == "グラデーション":
+        bg_style = f"linear-gradient(135deg, #f5f7fa 0%, {main_color}44 100%)"
+        text_color = "#31333F"
+    elif bg_type == "ダーク":
+        bg_style = "#1E1E1E"
+        text_color = "#FFFFFF"
+    else:
+        bg_style = "#FFFFFF"
+        text_color = "#31333F"
+
+# --- 4. カスタムCSSの注入 ---
+st.markdown(f"""
+    <style>
+    .stApp {{
+        background: {bg_style};
+        color: {text_color};
+    }}
+    .stButton>button {{
+        border-radius: 12px;
+        background-color: {main_color};
+        color: white;
+        border: none;
+        height: 3em;
+        font-weight: bold;
+    }}
+    .stTextInput>div>div>input {{
+        border-radius: 10px;
+    }}
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- 5. 認証機能 ---
 if not st.session_state.auth:
     st.title("🛡️ Evidence Prime Pro Portal")
-    col1, col2, col3 = st.columns([1, 2, 1])
+    col1, col2, col3 = st.columns([1,2,1])
     with col2:
-        st.info("このアプリは17歳の開発者によって設計されています。")
-        pwd = st.text_input("認証キー（合言葉）を入力:", type="password")
+        st.write("### Welcome to the Future of Evidence")
+        pwd = st.text_input("認証キーを入力:", type="password")
         if st.button("アクセスを許可する"):
             if pwd == st.secrets.get("APP_PASSWORD", "absolute-proof"):
                 st.session_state.auth = True
-                st.balloons()
                 st.rerun()
             else:
                 st.error("アクセス権限がありません。")
     st.stop()
 
-# --- 5. Groqクライアント設定 ---
-# Secretsの読み込みエラーを防ぐためのガード
-try:
-    api_key = st.secrets["GROQ_API_KEY"]
-    client = Groq(api_key=api_key)
-except Exception as e:
-    st.error("APIキーがSecretsに設定されていません。")
-    st.stop()
+# --- 6. Groqクライアント設定 ---
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-# --- 6. サイドバー（設定・履歴消去） ---
+# --- 7. サイドバー（管理メニュー） ---
 with st.sidebar:
-    st.title("⚙️ Control Panel")
-    st.write(f"**Status:** 認証済み ✅")
+    st.divider()
     if st.button("🗑️ チャット履歴を消去"):
         st.session_state.messages = []
         st.rerun()
     
-    st.divider()
-    st.write("### 性格プロファイル")
-    st.json(st.session_state.personality)
+    # 診断結果の保存（ダウンロード機能）
+    if st.session_state.personality.get("status") == "診断済み":
+        st.write("### 診断結果を保存")
+        p_data = json.dumps(st.session_state.personality, indent=2, ensure_ascii=False)
+        st.download_button(
+            label="📄 診断結果をダウンロード",
+            data=p_data,
+            file_name="my_personality.json",
+            mime="application/json"
+        )
 
-# --- 7. メインコンテンツ（タブ構造） ---
+# --- 8. メインコンテンツ ---
 tab_diag, tab_chat, tab_tool = st.tabs(["🧬 高精密性格診断", "💬 エビデンス・チャット", "📊 分析ツール"])
 
-# --- Tab 1: 性格診断 (5問) ---
+# --- Tab 1: 性格診断 ---
 with tab_diag:
     st.header("Personality Analysis")
     with st.form("diag_form"):
-        st.write("直感でお答えください。AIがあなた専用の口調と回答スタイルに最適化されます。")
-        q1 = st.select_slider("1. 新しい知識を得ることに興奮する？", options=["全くない", "たまに", "普通", "強い", "非常に強い"])
-        q2 = st.radio("2. 意思決定の基準は？", ["論理とデータ", "感情と共感"])
-        q3 = st.radio("3. 週末の過ごし方は？", ["一人で深く集中", "友人と刺激的に"])
-        q4 = st.select_slider("4. 完璧主義な方だと思う？", options=["違う", "少し", "普通", "強い", "完璧主義"])
-        q5 = st.radio("5. 好きな議論のタイプは？", ["抽象的な理論", "具体的な事実"])
+        q1 = st.select_slider("1. 知的好奇心の強さは？", options=["低い", "普通", "高い", "圧倒的"])
+        q2 = st.radio("2. 判断の軸は？", ["データと論理", "共感と直感"])
+        q3 = st.radio("3. 集中できる環境は？", ["静かな独りきりの空間", "適度に賑やかな場所"])
+        q4 = st.select_slider("4. 行動力のタイプ", options=["慎重派", "バランス", "即断即決"])
+        q5 = st.radio("5. 理想の回答スタイルは？", ["結論からズバッと", "丁寧にプロセスを解説"])
         
-        if st.form_submit_button("診断を確定し、AIを最適化する"):
+        if st.form_submit_button("診断結果をAIに記憶させる"):
             st.session_state.personality = {
-                "openness": q1, "logic": q2, "energy": q3, "perfection": q4, "fact": q5, "status": "診断済み"
+                "curiosity": q1, "logic": q2, "focus": q3, "action": q4, "style": q5, "status": "診断済み"
             }
-            st.success("AIのパーソナライズが完了しました！")
+            st.success("記憶に成功しました！チャットであなた専用の回答が得られます。")
 
-# --- Tab 2: メインチャット (YouTube連携 & 連続質問) ---
+# --- Tab 2: メインチャット ---
 with tab_chat:
     st.header("Evidence Based Chat")
     
-    # メッセージ表示
     for m in st.session_state.messages:
         with st.chat_message(m["role"]):
             st.markdown(m["content"])
 
-    # 入力フォーム
     if prompt := st.chat_input("知りたいエビデンスを質問してください..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # AIへのインストラクション
         p = st.session_state.personality
-        sys_msg = f"""あなたは世界最高峰の科学コミュニケーターです。
-        ユーザー性格設定: {p}
-        この性格に合わせ、親しみやすい、あるいは専門的な口調を使い分けてください。
-        回答の最後に必ず 'Keywords: [検索ワード]' の形式で、YouTube検索に最適な日本語キーワードを1つだけ出力してください。"""
+        sys_msg = f"あなたは科学の専門家です。ユーザーの性格({p})に合わせ、最適化された口調で回答してください。回答の最後に必ず 'Keywords: [検索ワード]' を1つ付けてください。"
 
         try:
-            full_messages = [{"role": "system", "content": sys_msg}] + st.session_state.messages
             response = client.chat.completions.create(
-                messages=full_messages,
+                messages=[{"role": "system", "content": sys_msg}] + st.session_state.messages,
                 model="llama-3.3-70b-versatile",
             )
             
-            # 【ダブルチェック修正箇所】[0]を追加
             full_res = response.choices[0].message.content
             
-            # YouTubeキーワード抽出
-            yt_q = "科学 エビデンス"
-            if "Keywords:" in full_res:
-                yt_q = full_res.split("Keywords:")[-1].replace("[", "").replace("]", "").strip()
+            # YouTube検索リンク生成
+            yt_q = full_res.split("Keywords:")[-1].strip() if "Keywords:" in full_res else "科学"
+            encoded_yt = urllib.parse.quote(yt_q)
 
             with st.chat_message("assistant"):
                 st.markdown(full_res)
-                # YouTubeリンクボタン
-                encoded_yt = urllib.parse.quote(yt_q)
-                st.markdown(f"#### 📺 関連動画でさらに深く学ぶ")
-                st.info(f"「{yt_q}」の検索結果をチェックしよう！")
-                st.link_button(f"YouTubeで '{yt_q}' を検索", f"https://youtube.com{encoded_yt}")
+                st.link_button(f"📺 YouTubeで '{yt_q}' を深掘り", f"https://youtube.com{encoded_yt}")
 
             st.session_state.messages.append({"role": "assistant", "content": full_res})
 
         except Exception as e:
-            st.error(f"APIエラーが発生しました。SecretsのAPIキーを確認してください。: {e}")
+            st.error(f"エラーが発生しました: {e}")
 
 # --- Tab 3: 分析ツール ---
 with tab_tool:
-    st.header("Evidence Tools")
-    st.write("将来的に、ここへティア表生成エンジンを組み込みます。")
-    st.progress(40, text="開発進行度: 40%")
+    st.header("Special Tools")
+    st.write("あなたの性格に基づいた、今日から使えるライフハック：")
+    if st.session_state.personality.get("status") == "診断済み":
+        if st.session_state.personality["logic"] == "データと論理":
+            st.success("🎯 **ロジカル・ライフハック**: ポモドーロ・テクニックを25分-5分で回し、データを記録しましょう。")
+        else:
+            st.success("✨ **共感型・ライフハック**: 好きな音楽をBGMに、感情の波に乗って作業を進めましょう。")
+    else:
+        st.warning("性格診断を完了すると、ここに個別のアドバイスが表示されます。")
