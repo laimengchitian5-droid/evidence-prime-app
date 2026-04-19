@@ -2,166 +2,177 @@ import streamlit as st
 from groq import Groq
 import urllib.parse
 import json
+import os
 from datetime import datetime
 import pandas as pd
 
-# --- 1. 究極のデザイン・システム ---
-class ThemeEngine:
+# --- 1. 定数・設定 ---
+DB_FILE = "user_memory.json"
+APP_TITLE = "🧬 Evidence Prime Pro: Grand Vision"
+
+# --- 2. 永続化エンジン (C: 記憶機能) ---
+class MemoryEngine:
     @staticmethod
-    def apply(main_color, mode):
-        bg = "#121212" if mode == "Dark" else "#F0F2F6"
-        txt = "#FFFFFF" if mode == "Dark" else "#1E1E1E"
-        card_bg = "rgba(255, 255, 255, 0.05)" if mode == "Dark" else "rgba(255, 255, 255, 0.7)"
-        
-        st.markdown(f"""
-            <style>
-            .stApp {{ background: {bg}; color: {txt}; font-family: 'Inter', sans-serif; }}
-            .stTabs [data-baseweb="tab-list"] {{ gap: 24px; }}
-            .stTabs [data-baseweb="tab"] {{
-                background-color: transparent; border-radius: 4px; color: {txt}; font-weight: 600;
-            }}
-            div[data-testid="stExpander"] {{
-                background: {card_bg}; backdrop-filter: blur(10px); border-radius: 15px; border: 1px solid {main_color}44;
-            }}
-            .stButton>button {{
-                width: 100%; border-radius: 30px; background: linear-gradient(45deg, {main_color}, {main_color}88);
-                color: white; border: none; padding: 10px 20px; font-weight: 700; transition: 0.3s;
-            }}
-            .stButton>button:hover {{ transform: translateY(-2px); box-shadow: 0 4px 15px {main_color}66; }}
-            </style>
-            """, unsafe_allow_html=True)
+    def load():
+        """ファイルから過去の記憶をロード"""
+        if os.path.exists(DB_FILE):
+            with open(DB_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        return {"personality": {}, "history_summary": "", "habits": []}
 
-# --- 2. AIコア・ロジック ---
-class EvidenceCore:
-    def __init__(self, api_key):
-        self.client = Groq(api_key=api_key)
+    @staticmethod
+    def save(data):
+        """現在の状態をファイルに保存"""
+        with open(DB_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
 
-    def generate_response(self, messages, personality, plugins):
-        sys_instr = f"""あなたは「Evidence Prime Pro」の核心AIです。
-        ユーザー性格: {json.dumps(personality)}
-        【必須ルール】
-        1. 科学的根拠（エビデンス）のティアを明記せよ。
-        2. 手順は必ず '```mermaid\\ngraph TD' で図解せよ(プラグイン有効時)。
-        3. 回答の末尾に必ず 'SEARCH_WORD: [キーワード]' を含めよ。
-        4. 性格に合わせ、ユーザーのモチベーションを最大化する口調を使え。"""
-        
-        response = self.client.chat.completions.create(
-            messages=[{"role": "system", "content": sys_instr}] + messages,
-            model="llama-3.3-70b-versatile",
-            temperature=0.7
-        )
-        return response.choices[0].message.content
+# --- 3. UI/UX デザインシステム ---
+def apply_ultra_theme():
+    st.set_page_config(page_title=APP_TITLE, page_icon="🧬", layout="wide")
+    main_color = st.session_state.get("theme_color", "#4A90E2")
+    st.markdown(f"""
+        <style>
+        .stApp {{ background: #0F1116; color: #E0E0E0; }}
+        .stButton>button {{
+            background: linear-gradient(45deg, {main_color}, #2C3E50);
+            color: white; border: none; border-radius: 12px; font-weight: bold;
+            transition: 0.3s; width: 100%;
+        }}
+        .stButton>button:hover {{ transform: translateY(-2px); box-shadow: 0 4px 20px {main_color}66; }}
+        .memory-card {{
+            background: rgba(255, 255, 255, 0.05); border-radius: 15px;
+            padding: 20px; border: 1px solid {main_color}44;
+        }}
+        </style>
+        """, unsafe_allow_html=True)
 
-# --- 3. セッション・マネージャー ---
-def init_session():
-    defaults = {
-        "messages": [], "personality": {"status": "未診断", "type": "N/A"},
-        "auth": False, "habits": [], "score": 0, "theme_color": "#4A90E2", "theme_mode": "Dark"
-    }
-    for key, val in defaults.items():
-        if key not in st.session_state: st.session_state[key] = val
+# --- 4. 初期化 ---
+if "auth" not in st.session_state: st.session_state.auth = False
+if "memory" not in st.session_state: st.session_state.memory = MemoryEngine.load()
+if "messages" not in st.session_state: st.session_state.messages = []
+if "temp_schedule" not in st.session_state: st.session_state.temp_schedule = None
+if "theme_color" not in st.session_state: st.session_state.theme_color = "#4A90E2"
 
-init_session()
+apply_ultra_theme()
 
-# --- 4. 認証・セキュリティ ---
+# --- 5. 認証 ---
 if not st.session_state.auth:
-    st.title("💠 Evidence Prime Pro")
-    with st.container():
-        pwd = st.text_input("🔑 System Access Key", type="password")
-        if st.button("Unlock Core"):
+    st.title("🛡️ Secure Access System")
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        pwd = st.text_input("Enter Command Key:", type="password")
+        if st.button("AUTHENTICATE"):
             if pwd == st.secrets.get("APP_PASSWORD", "absolute-proof"):
                 st.session_state.auth = True
                 st.rerun()
     st.stop()
 
-# --- 5. メインエンジン起動 ---
-core = EvidenceCore(st.secrets["GROQ_API_KEY"])
-ThemeEngine.apply(st.session_state.theme_color, st.session_state.theme_mode)
+# --- 6. AI コアロジック (A, B, C の統合) ---
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-# --- 6. サイドバー・コントロールセンター ---
-with st.sidebar:
-    st.image("https://icons8.com", width=80)
-    st.title("Control Center")
+def process_ai_request(user_input):
+    # C: 過去の要約と性格をコンテキストに注入
+    m = st.session_state.memory
+    sys_prompt = f"""あなたは「Evidence Prime Pro」の統括知能です。
+    【ユーザープロファイル】: {m['personality']}
+    【過去の対話要約】: {m['history_summary']}
     
-    with st.expander("🎨 Appearance"):
-        st.session_state.theme_color = st.color_picker("Brand Color", st.session_state.theme_color)
-        st.session_state.theme_mode = st.radio("Mode", ["Dark", "Light"])
+    【A: 信頼性】回答の根拠となるキーワードを 'RESOURCES: [ワード1, ワード2]' で出力せよ。
+    【B: 計画】具体的な解決策を以下のJSON形式で回答内に埋め込め。
+    ```json
+    {{"weekly_plan": [{{"day": "Mon", "action": "..."}}, ...]}}
+    ```
+    """
     
-    with st.expander("🛠️ Plug-ins"):
-        p_graph = st.toggle("Mermaid Engine", value=True)
-        p_search = st.toggle("Real-time Search", value=True)
-        p_stats = st.toggle("Analytical Stats", value=True)
+    # 実行
+    messages = [{"role": "system", "content": sys_prompt}] + st.session_state.messages
+    response = client.chat.completions.create(
+        messages=messages,
+        model="llama-3.3-70b-versatile",
+        temperature=0.6
+    ).choices[0].message.content
+    
+    return response
 
-    if st.button("🔴 Reset Memory"):
-        st.session_state.messages = []
-        st.rerun()
+# --- 7. メインインターフェース (タブ構造) ---
+tab1, tab2, tab3, tab4 = st.tabs(["💬 Quantum Chat", "📅 Action Plan", "🧠 Core Memory", "⚙️ System"])
 
-# --- 7. アプリ・インターフェース ---
-t1, t2, t3, t4 = st.tabs(["🧬 Diagnostic", "💬 Quantum Chat", "📈 Analytics", "⚙️ Settings"])
+# --- Tab 1: チャット & A (信頼性) ---
+with tab1:
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]): st.markdown(msg["content"])
 
-# --- Tab 1: 高度な診断 ---
-with t1:
-    st.subheader("Neural Personality Mapping")
-    with st.form("advanced_diag"):
-        col_a, col_b = st.columns(2)
-        q1 = col_a.select_slider("好奇心レベル", options=range(1, 11))
-        q2 = col_b.select_slider("論理性 vs 直感性", options=range(1, 11))
-        q3 = st.text_area("あなたの現在の最大の目標は？")
-        if st.form_submit_button("Map Identity"):
-            st.session_state.personality = {"score": (q1+q2)/2, "goal": q3, "status": "診断済み"}
-            st.toast("Identity Mapped Successfully!")
-
-# --- Tab 2: 究極の対話 ---
-with t2:
-    for m in st.session_state.messages:
-        with st.chat_message(m["role"]):
-            st.markdown(m["content"])
-
-    if prompt := st.chat_input("指令を入力..."):
+    if prompt := st.chat_input("エビデンスに基づく分析を開始..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"): st.markdown(prompt)
 
-        with st.spinner("AI Thinking..."):
-            res = core.generate_response(st.session_state.messages, st.session_state.personality, {})
+        with st.spinner("Accessing Neural Databases..."):
+            res_content = process_ai_request(prompt)
             
+            # B: スケジュールデータの抽出
+            if "```json" in res_content:
+                try:
+                    js_str = res_content.split("```json")[1].split("```")[0]
+                    st.session_state.temp_schedule = json.loads(js_str).get("weekly_plan")
+                except: pass
+
             with st.chat_message("assistant"):
-                # Mermaidの抽出と描画
-                if "```mermaid" in res and p_graph:
-                    parts = res.split("```mermaid")
-                    st.markdown(parts[0])
-                    st.mermaid(parts[1].split("```")[0])
-                    st.markdown(parts[1].split("```")[-1])
-                else:
-                    st.markdown(res)
+                st.markdown(res_content.split("```json")[0]) # JSONを除いて表示
                 
-                # 検索連携
-                if "SEARCH_WORD:" in res and p_search:
-                    word = res.split("SEARCH_WORD:")[-1].strip(" []")
-                    st.link_button(f"🌐 外部エビデンスを確認: {word}", f"https://google.com{urllib.parse.quote(word)}")
-                
-                if st.button("🚀 この知識を習慣化（トラッカーへ）"):
-                    st.session_state.habits.append({"task": prompt, "time": datetime.now().strftime("%H:%M")})
-                    st.session_state.score += 10
+                # A: リソースリンクの生成
+                if "RESOURCES:" in res_content:
+                    st.divider()
+                    st.write("🌐 **Verification Nodes:**")
+                    r_part = res_content.split("RESOURCES:")[-1].strip(" []").split(",")
+                    cols = st.columns(len(r_part))
+                    for i, kw in enumerate(r_part):
+                        url = f"https://google.com{urllib.parse.quote(kw.strip())}+evidence"
+                        cols[i].link_button(f"🔗 {kw.strip()}", url)
 
-        st.session_state.messages.append({"role": "assistant", "content": res})
+            st.session_state.messages.append({"role": "assistant", "content": res_content})
 
-# --- Tab 3: 分析ダッシュボード ---
-with t3:
-    st.subheader("Performance Analytics")
-    if p_stats:
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Total Experience", f"{st.session_state.score} XP")
-        m2.metric("Habits Formed", len(st.session_state.habits))
-        m3.metric("Neural Sync", f"{st.session_state.personality.get('score', 0) * 10}%")
-        
-        if st.session_state.habits:
-            df = pd.DataFrame(st.session_state.habits)
-            st.table(df)
+# --- Tab 2: 行動計画 (B: 実行力) ---
+with tab2:
+    st.header("Weekly Strategic Plan")
+    if st.session_state.temp_schedule:
+        df = pd.DataFrame(st.session_state.temp_schedule)
+        st.table(df)
+        if st.button("📝 この計画を長期記憶に保存"):
+            st.session_state.memory["habits"] = st.session_state.temp_schedule
+            MemoryEngine.save(st.session_state.memory)
+            st.success("記憶バンクに書き込みました。")
     else:
-        st.info("プラグインを有効にしてください。")
+        st.info("チャットで具体的な目標を相談すると、ここに計画が生成されます。")
 
-# --- Tab 4: 内部システム設定 ---
-with t4:
-    st.subheader("System Configuration")
-    st.write("Current Session ID:", id(st.session_state))
-    st.json(st.session_state.personality)
+# --- Tab 3: 記憶管理 (C: 記憶) ---
+with tab3:
+    st.header("Neural Memory Bank")
+    col_l, col_r = st.columns(2)
+    
+    with col_l:
+        st.subheader("Personality Mapping")
+        # 簡易診断フォーム
+        new_p = st.text_area("自分自身の性格や現在の状況をAIに教え込む:", value=json.dumps(st.session_state.memory["personality"]))
+        if st.button("Update Profile"):
+            try:
+                st.session_state.memory["personality"] = json.loads(new_p)
+                MemoryEngine.save(st.session_state.memory)
+                st.rerun()
+            except: st.error("JSON形式で入力してください。")
+
+    with col_r:
+        st.subheader("Context Summary")
+        summary = st.text_area("対話の要約（AIが長期的に記憶する内容）:", value=st.session_state.memory["history_summary"])
+        if st.button("Sync Summary"):
+            st.session_state.memory["history_summary"] = summary
+            MemoryEngine.save(st.session_state.memory)
+            st.success("同期完了。")
+
+# --- Tab 4: システム設定 ---
+with tab4:
+    st.subheader("Global Configuration")
+    st.session_state.theme_color = st.color_picker("Brand Identity Color", st.session_state.theme_color)
+    if st.button("🔴 Factory Reset"):
+        if os.path.exists(DB_FILE): os.remove(DB_FILE)
+        st.session_state.clear()
+        st.rerun()
