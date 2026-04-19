@@ -333,3 +333,100 @@ def render_big_five_radar():
 # モジュールの呼び出し（安全な実行）
 if st.session_state.get("authenticated"):
     render_big_five_radar()
+# ==========================================
+# MODULE 6: ADVANCED DIAGNOSTIC ENGINE (v4.5)
+# ==========================================
+
+def run_big_five_diagnostic():
+    """
+    15問の質問に基づき、反転項目を処理してスコアを算出。
+    過去データとの比較分析も実行する。
+    """
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🧬 精密性格診断 (15問)")
+    
+    # 診断開始ボタン（サイドバーをスッキリさせるため、エキスパンダーを使用）
+    with st.sidebar.expander("📝 診断テストを開始/再受診"):
+        st.caption("1:全くない 〜 5:非常にある")
+        
+        questions = [
+            ("活発で、外向的だと思う", "E"), ("他人に寛容で、信頼しやすいと思う", "A"),
+            ("手際よく、着実に物事をこなすと思う", "C"), ("心配性で、気分が沈みやすいと思う", "N"),
+            ("新しいことに関心を持ち、想像力が豊かだと思う", "O"),
+            ("控えめで、大人しい方だと思う", "E_rev"), ("他人に対して批判的になりやすいと思う", "A_rev"),
+            ("少しだらしなく、計画性に欠けるところがある", "C_rev"), ("冷静で、ストレスに強い方だと思う", "N_rev"),
+            ("あまり芸術や創造的なことには興味がない", "O_rev"),
+            ("社交的で、グループの中心にいることが多い", "E"), ("誰にでも親切で、協力的だと思う", "A"),
+            ("責任感が強く、自分に厳しいと思う", "C"), ("些細なことでイライラしたり不安になったりする", "N"),
+            ("独創的なアイデアを出すのが得意だ", "O")
+        ]
+        
+        answers = []
+        for i, (q_text, q_type) in enumerate(questions):
+            ans = st.radio(f"Q{i+1}: {q_text}", options=[1, 2, 3, 4, 5], horizontal=True, key=f"q{i}")
+            answers.append((ans, q_type))
+        
+        if st.button("診断結果を解析・保存 🚀", use_container_width=True):
+            # --- スコア計算ロジック (ダブルチェック済み) ---
+            scores = {"E": 0, "A": 0, "C": 0, "N": 0, "O": 0}
+            for val, q_type in answers:
+                if "_rev" in q_type:
+                    actual_type = q_type.replace("_rev", "")
+                    scores[actual_type] += (6 - val) # 反転処理: 6 - score
+                else:
+                    scores[q_type] += val
+            
+            # 15点満点を5点スケールに変換 (レーダーチャート同期用)
+            final_bf = {k: round(v / 3, 1) for k, v in scores.items()}
+            
+            # --- 履歴の保存 (過去分析用) ---
+            new_record = {
+                "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "scores": final_bf
+            }
+            if "history" not in st.session_state.memory:
+                st.session_state.memory["history"] = []
+            
+            st.session_state.memory["history"].append(new_record)
+            st.session_state.memory["big_five"] = final_bf
+            
+            # モジュール4の保存関数を呼び出し
+            if 'save_memory' in globals():
+                save_memory(st.session_state.memory)
+            
+            st.success("診断完了！データが同期されました。")
+            st.rerun()
+
+def render_comparison_analysis():
+    """
+    過去の結果と現在の結果を比較し、変化を可視化する (モジュール化)
+    """
+    history = st.session_state.memory.get("history", [])
+    if len(history) < 2:
+        st.info("💡 複数回診断を受けると、性格の変化を分析できるようになります。")
+        return
+
+    st.subheader("📈 性格の変遷・自己成長分析")
+    
+    # 最新と前回の比較
+    latest = history[-1]
+    previous = history[-2]
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.caption(f"前回: {previous['date']}")
+        st.write(previous['scores'])
+    with col2:
+        st.caption(f"最新: {latest['date']}")
+        st.write(latest['scores'])
+
+    # 変化の言語化（先生へのプレゼン・キラーポイント）
+    diff_c = latest['scores']['C'] - previous['scores']['C']
+    if abs(diff_c) >= 0.5:
+        trend = "向上" if diff_c > 0 else "低下"
+        st.warning(f"💡 勤勉性（C）に {abs(diff_c)} ポイントの{trend}が見られます。最近の生活習慣の変化が影響している可能性があります。")
+
+# --- 実行セクション (Main内の適切な場所に配置) ---
+run_big_five_diagnostic()
+# render_big_five_radar() は Module 5 をそのまま使用可能
+# render_comparison_analysis() は分析タブで使用
