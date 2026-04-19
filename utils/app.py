@@ -745,13 +745,6 @@ def evidence_prime_pro_core():
             if "blueprint" in msg and msg["blueprint"]:
                 st.table(msg["blueprint"])
 
-    # チャット入力
-    if prompt := st.chat_input(f"'{active_tab}' で問いを立てる..."):
-        # ユーザーの発言を記録
-        st.session_state.tabs[active_tab].append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-
         # AIの思考プロセス
         with st.chat_message("assistant"):
             # --- ここに既存の AI Engine 呼び出し関数を接続 ---
