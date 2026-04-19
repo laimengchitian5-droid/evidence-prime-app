@@ -694,21 +694,23 @@ def evidence_prime_pro_core():
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
 
-    if not st.session_state.authenticated:
+       if not st.session_state.authenticated:
         st.markdown("<h1 style='text-align: center;'>🔐 System Access</h1>", unsafe_allow_html=True)
+        # 画面中央に配置
         _, col2, _ = st.columns([1, 2, 1])
         with col2:
-            input_pass = st.text_input("Enter Passphrase", type="password")
+            input_pass = st.text_input("Enter Passphrase", type="password", key="auth_input")
+            
+            # secretsにある 'absolute_proof' を直接見に行く
             if input_pass:
-                # Secretsから合言葉をチェック
-                if input_pass == st.secrets["PASSKEY"]:
+                if input_pass == st.secrets["absolute_proof"]:
                     st.session_state.authenticated = True
-                    st.success("✅ Identity Verified.")
                     st.balloons()
                     st.rerun()
                 else:
                     st.error("❌ Access Denied.")
         st.stop()
+
 
     # 2. AI基盤 & APIキーの検証
     api_key = st.secrets.get("GROQ_API_KEY")
