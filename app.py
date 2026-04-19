@@ -1,148 +1,177 @@
 import streamlit as st
+import pandas as pd
 import json
 import os
+from datetime import datetime
 
-# --- 1. SETTINGS & THEMES ---
-st.set_page_config(page_title="Evidence Prime Pro", layout="wide")
+# --- 1. CORE CONFIG & AUTHENTICATION ---
+st.set_page_config(page_title="Evidence Prime Pro", layout="wide", initial_sidebar_state="expanded")
 
-def apply_custom_style(main_color):
-    """グラスモーフィズムと動的カラーテーマを適用する完全版CSS"""
+# 認証機能 (absolute-proof)
+def check_password():
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+    if st.session_state.authenticated:
+        return True
+    
+    st.title("🔒 Evidence Prime Pro Access")
+    pwd = st.text_input("合言葉を入力してください", type="password")
+    if st.button("Unlock"):
+        if pwd == st.secrets["password"]:
+            st.session_state.authenticated = True
+            st.rerun()
+        else:
+            st.error("認証失敗")
+    return False
+
+if not check_password():
+    st.stop()
+
+# --- 2. DYNAMIC UI & GLASSMORPHISM CSS ---
+def apply_ui_system():
+    # サイドバーでのデザイン制御
+    st.sidebar.title("🎨 Design & Settings")
+    
+    # クイックテーマ選択
+    theme_mode = st.sidebar.radio("Quick Theme", ["Custom", "Midnight", "Deep Sea", "Emerald", "Crimson"], horizontal=True)
+    presets = {
+        "Midnight": "#6366f1", "Deep Sea": "#0ea5e9", 
+        "Emerald": "#10b981", "Crimson": "#f43f5e"
+    }
+    
+    if theme_mode == "Custom":
+        main_color = st.sidebar.color_picker("Brand Color", "#6366f1")
+    else:
+        main_color = presets[theme_mode]
+
+    # 言語切り替え
+    lang = st.sidebar.selectbox("Language", ["JP", "EN", "KR", "CN"])
+
+    # グラスモーフィズムCSS完全版
     st.markdown(f"""
         <style>
-        /* 背景グラデーション */
         .stApp {{
-            background: linear-gradient(135deg, {main_color}33, #0e1117, #000000);
+            background: radial-gradient(circle at top right, {main_color}22, #000000);
             background-attachment: fixed;
+            color: #e2e8f0;
         }}
-        
-        /* ガラス状のカードデザイン */
+        /* メッセージカード */
         div[data-testid="stChatMessage"] {{
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 15px;
-            border: 1px solid {main_color}44;
-            backdrop-filter: blur(10px);
-            margin-bottom: 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid {main_color}33;
+            backdrop-filter: blur(12px);
+            border-radius: 18px;
+            margin: 10px 0;
+            padding: 15px;
         }}
-        
-        /* サイドバーのカスタマイズ */
-        .css-1d391kg, [data-testid="stSidebar"] {{
-            background-color: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(20px);
-            border-right: 1px solid {main_color}33;
-        }}
-        
-        /* ボタンとアクセント */
-        .stButton>button {{
-            border-radius: 20px;
-            border: 1px solid {main_color};
-            background-color: transparent;
-            color: {main_color};
-            transition: 0.3s;
-        }}
-        .stButton>button:hover {{
-            background-color: {main_color};
+        /* タブのスタイル */
+        .stTabs [data-baseweb="tab-list"] {{ gap: 10px; }}
+        .stTabs [data-baseweb="tab"] {{
+            background-color: rgba(255,255,255,0.05);
+            border-radius: 10px 10px 0 0;
+            padding: 10px 20px;
             color: white;
-            box-shadow: 0 0 15px {main_color};
+        }}
+        .stTabs [aria-selected="true"] {{
+            background-color: {main_color}44 !important;
+            border-bottom: 2px solid {main_color} !important;
         }}
         </style>
     """, unsafe_allow_html=True)
+    return main_color, lang
 
-# --- 2. PERSONALITY LOGIC (Big Five) ---
-def big_five_ui():
-    st.markdown(f"### 🧬 Big Five 性格診断モード")
-    st.caption("直感的に、今の自分に近い位置をタップしてください。")
+# --- 3. MEMORY & DATA SYSTEM (A-C Model) ---
+MEMORY_FILE = "user_memory.json"
+
+def load_memory():
+    if os.path.exists(MEMORY_FILE):
+        with open(MEMORY_FILE, "r") as f:
+            return json.load(f)
+    return {"personality": {}, "big_five": {}, "history_summary": "", "last_update": ""}
+
+def save_memory(data):
+    data["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with open(MEMORY_FILE, "w") as f:
+        json.dump(data, f, indent=4)
+
+# --- 4. BIG FIVE DIAGNOSTIC (Tap System) ---
+def big_five_section():
+    st.markdown("### 🧬 Big Five 精密性格診断")
+    st.caption("各項目をタップして、あなたの現在の状態を教えてください。")
     
     col1, col2 = st.columns(2)
     with col1:
-        e = st.select_slider("👥 外向性 (社交的 ↔ 内省的)", options=[1,2,3,4,5], value=3)
-        a = st.select_slider("🤝 協調性 (献身的 ↔ 合理的)", options=[1,2,3,4,5], value=3)
-        c = st.select_slider("📈 勤勉性 (計画的 ↔ 柔軟・即興)", options=[1,2,3,4,5], value=3)
+        e = st.select_slider("👥 外向性 (静か ↔ 社交的)", options=, value=3)
+        a = st.select_slider("🤝 協調性 (合理的 ↔ 共感的)", options=, value=3)
+        c = st.select_slider("📈 勤勉性 (即興的 ↔ 計画的)", options=, value=3)
     with col2:
-        n = st.select_slider("🧠 神経症傾向 (繊細 ↔ 楽観・動じない)", options=[1,2,3,4,5], value=3)
-        o = st.select_slider("🎨 開放性 (好奇心旺盛 ↔ 堅実・伝統)", options=[1,2,3,4,5], value=3)
-
-    if st.button("プロファイルを同期", use_container_width=True):
-        st.session_state.user_memory["big_five"] = {
-            "extraversion": e, "agreeableness": a, "conscientiousness": c,
-            "neuroticism": n, "openness": o
-        }
-        st.success("AIがあなたの深層性格を学習しました。")
-
-# --- 3. THE STRONGEST SYSTEM PROMPT ---
-def get_system_prompt():
-    bf = st.session_state.user_memory.get("big_five", {"extraversion":3,"agreeableness":3,"conscientiousness":3,"neuroticism":3,"openness":3})
+        n = st.select_slider("🧠 神経症傾向 (冷静 ↔ 繊細)", options=, value=3)
+        o = st.select_slider("🎨 開放性 (保守的 ↔ 好奇心)", options=, value=3)
     
-    # 性格に応じたアドバイス戦略の動的生成
-    strategy = ""
-    if bf["conscientiousness"] <= 2:
-        strategy += "- ユーザーは即興を好むため、細かすぎる計画より『まず5分だけやる』スモールステップを提示せよ。"
-    else:
-        strategy += "- ユーザーは計画的であるため、具体的な時間軸とチェックリストを提示せよ。"
-        
-    if bf["neuroticism"] >= 4:
-        strategy += "- ユーザーは繊細であるため、否定的な言葉を避け、エビデンスに基づいた安心感を強調せよ。"
+    if st.button("性格プロファイルを永久保存", use_container_width=True):
+        st.session_state.memory["big_five"] = {"E": e, "A": a, "C": c, "N": n, "O": o}
+        save_memory(st.session_state.memory)
+        st.success("長期記憶バンクへ同期完了。AIの思考回路がアップデートされました。")
+
+# --- 5. AI ENGINE & PROMPT (Groq Integration Ready) ---
+def generate_system_prompt():
+    mem = st.session_state.memory
+    bf = mem.get("big_five", {"E":3, "A":3, "C":3, "N":3, "O":3})
+    
+    # 性格に応じた適応ロジック（最強プロンプト）
+    c_trait = "細かいタスク分解とリマインド" if bf["C"] <= 2 else "高度な構造化と長期目標"
+    n_trait = "心理的安全性を重視した肯定表現" if bf["N"] >= 4 else "客観的かつストレートな事実提示"
     
     prompt = f"""
-あなたは世界最高のパーソナルAI『Evidence Prime Pro』です。
-17歳の天才開発者によって設計された「A-Cモデル」を搭載しています。
-
-【ユーザーの性格特性 (Big Five スコア 1-5)】
-- 外向性: {bf['extraversion']} | 協調性: {bf['agreeableness']} | 勤勉性: {bf['conscientiousness']} | 神経症傾向: {bf['neuroticism']} | 開放性: {bf['openness']}
-
-【運用ガイドライン】
-1. A (Authority): 常に最新の科学的知見を引用し、[ソース名]を明記せよ。
-2. B (Blueprint): 性格特性に最適化された行動計画を出力せよ。
-   - 戦略: {strategy}
-3. C (Context): ユーザーの性格、過去の対話を記憶し、親友であり有能なメンターとして振る舞え。
+あなたは『Evidence Prime Pro』、17歳の天才開発者の相棒です。
+【A-Cモデル運用指示】
+- A (Authority): Google Scholar級の信頼性。検証リンクを必ず提示。
+- B (Blueprint): JSON形式で行動計画を生成し、Mermaidで図解せよ。
+- C (Context): 以下のユーザー特性を全回答に反映せよ。
+  [性格スコア] E:{bf['E']}, A:{bf['A']}, C:{bf['C']}, N:{bf['N']}, O:{bf['O']}
+  [適応戦略] {c_trait} / {n_trait}
     """
     return prompt
 
-# --- 4. MAIN APP STRUCTURE ---
+# --- 6. MAIN INTERFACE ---
 def main():
-    # メモリの初期化
-    if "user_memory" not in st.session_state:
-        st.session_state.user_memory = {}
+    main_color, lang = apply_ui_system()
+    
+    if "memory" not in st.session_state:
+        st.session_state.memory = load_memory()
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
 
-    # サイドバー：デザイン設定
-    st.sidebar.title("🛠️ Control Panel")
-    
-    theme_choice = st.sidebar.radio("Quick Theme", ["Custom", "Ocean Blue", "Forest Green", "Lava Red"])
-    presets = {"Ocean Blue": "#0077ff", "Forest Green": "#2ecc71", "Lava Red": "#e74c3c"}
-    
-    if theme_choice == "Custom":
-        main_color = st.sidebar.color_picker("Brand Color", "#4A90E2")
-    else:
-        main_color = presets[theme_choice]
-    
-    apply_custom_style(main_color)
-
-    # メインエリア：タブ構成
-    tab_chat, tab_persona, tab_log = st.tabs(["💬 AI Agent", "🧬 Personality", "📊 Memory Bank"])
+    # タブ構成（機能全網羅）
+    tab_chat, tab_blueprint, tab_persona, tab_bank = st.tabs(["💬 Chat Agent", "🗓️ Blueprint", "🧬 Personality", "📊 Memory Bank"])
 
     with tab_persona:
-        big_five_ui()
+        big_five_section()
 
     with tab_chat:
         st.title("Evidence Prime Pro")
-        # チャットUIの実装（Groq APIとの連携部分は既存コードを流用）
-        st.info(f"現在のAI戦略: {theme_choice}モード | 性格適応済み")
-        
-        if "messages" not in st.session_state:
-            st.session_state.messages = []
-            
         for msg in st.session_state.messages:
             with st.chat_message(msg["role"]):
                 st.write(msg["content"])
 
-        if prompt := st.chat_input("何について科学的に解決しますか？"):
-            # ここにGroqへのAPIリクエストを記述（System Promptにget_system_prompt()を使用）
+        if prompt := st.chat_input("解決したい課題を入力..."):
             st.session_state.messages.append({"role": "user", "content": prompt})
             with st.chat_message("user"):
                 st.write(prompt)
             
-            # AIレスポンス生成（ダミー）
+            # ここにGroq API呼び出しを挿入（system_prompt=generate_system_prompt()）
+            # Mermaid図解やエビデンスリンクの処理をここに記述
             with st.chat_message("assistant"):
-                st.write("ここに最強プロンプトを反映したLlama 3.3の回答が表示されます。")
+                st.write("（ここにLlama 3.3 70Bの、性格に最適化された回答が表示されます）")
+
+    with tab_blueprint:
+        st.subheader("週間アクションプラン")
+        # 既存のテーブル・ダウンロード機能をここに集約
+        st.info("チャットで生成された計画がここに自動反映されます。")
+
+    with tab_bank:
+        st.subheader("長期記憶データ (JSON)")
+        st.json(st.session_state.memory)
 
 if __name__ == "__main__":
     main()
