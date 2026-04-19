@@ -589,3 +589,96 @@ def get_localized_system_instruction():
 # --- 実行 ---
 if st.session_state.get("authenticated"):
     render_language_settings()
+# --- 592行目以降：Workspace & Thread 統合システム ---
+
+def integrated_workspace_system():
+    """タブ管理・保存・描画のすべてを統括する関数"""
+    
+    # 1. データの初期化 (init_workspace)
+    if "tabs" not in st.session_state:
+        # 初回起動時、保存ファイルから読み込みを試みる
+        try:
+            with open("user_memory_global.json", "r", encoding="utf-8") as f:
+                saved_data = json.load(f)
+                st.session_state.tabs = saved_data.get("threads", {"Main": []})
+        except:
+            st.session_state.tabs = {"Main": []}
+    
+    if "active_tab" not in st.session_state:
+        st.session_state.active_tab = "Main"
+
+    # 2. サイドバーUIの描画 (render_workspace_ui)
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🚀 Workspaces")
+    
+    # 新規タブ作成
+    new_tab = st.sidebar.text_input("New Tab Name", key="tab_maker", placeholder="Press Enter...")
+    if new_tab and new_tab not in st.session_state.tabs:
+        st.session_state.tabs[new_tab] = []
+        st.session_state.active_tab = new_tab
+        st.rerun()
+
+    # タブ一覧ボタン
+    for t_name in list(st.session_state.tabs.keys()):
+        cols = st.sidebar.columns([0.8, 0.2])
+        if cols[0].button(f"📂 {t_name}", key=f"btn_{t_name}", use_container_width=True):
+            st.session_state.active_tab = t_name
+            st.rerun()
+        if t_name != "Main" and cols[1].button("🗑️", key=f"del_{t_name}"):
+            del st.session_state.tabs[t_name]
+            st.session_state.active_tab = "Main"
+            st.rerun()
+
+    # 3. メインチャット画面の描画 (run_main_session)
+    active_tab = st.session_state.active_tab
+    st.caption(f"Current Workspace: {active_tab}")
+    
+    # 現在のタブの履歴を表示
+    for msg in st.session_state.tabs[active_tab]:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+            if "blueprint" in msg and msg["blueprint"]:
+                st.table(msg["blueprint"])
+
+    # チャット入力欄
+    if prompt := st.chat_input(f"{active_tab} でAIと共創する..."):
+        # ユーザー発言を保存
+        st.session_state.tabs[active_tab].append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        # AI応答の生成
+        with st.chat_message("assistant"):
+            # ここに既存の AI Engine (Groq等) 呼び出しを接続
+            # --- 以下は既存のロジックに合わせて書き換えてください ---
+            response_text = "分析完了。Blueprintを生成しました。" 
+            blueprint_data = [["Task", "Evidence"], ["Sample", "Scientific Data"]] 
+            # --------------------------------------------------
+
+            st.markdown(response_text)
+            if blueprint_data:
+                st.table(blueprint_data)
+
+            # AI発言を保存
+            st.session_state.tabs[active_tab].append({
+                "role": "assistant",
+                "content": response_text,
+                "blueprint": blueprint_data
+            })
+
+            # JSON物理保存
+            try:
+                with open("user_memory_global.json", "r+", encoding="utf-8") as f:
+                    data = json.load(f)
+                    data["threads"] = st.session_state.tabs
+                    f.seek(0)
+                    json.dump(data, f, indent=4, ensure_ascii=False)
+                    f.truncate()
+            except:
+                with open("user_memory_global.json", "w", encoding="utf-8") as f:
+                    json.dump({"threads": st.session_state.tabs}, f, indent=4, ensure_ascii=False)
+            
+            st.rerun()
+
+# --- 実行 ---
+integrated_workspace_system()
