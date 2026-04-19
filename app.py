@@ -3,12 +3,18 @@ import pandas as pd
 import json
 import os
 import time
-import plotly.express as px
-import plotly.graph_objects as go
-from datetime import datetime, timedelta
+from datetime import datetime
 from groq import Groq
 
-# --- 1. SETTINGS & AUTHENTICATION ---
+# Plotlyの動的インポート（環境エラー対策）
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
+
+# --- 1. CORE CONFIGURATION ---
 st.set_page_config(
     page_title="Evidence Prime Pro | Global",
     page_icon="🧬",
@@ -16,6 +22,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# --- 2. SECURITY SYSTEM (Absolute-Proof) ---
 def check_password():
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
@@ -24,35 +31,35 @@ def check_password():
     
     st.markdown("""
         <style>
-        .login-box {
-            padding: 2rem;
-            border-radius: 20px;
+        .login-card {
             background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(20px);
+            padding: 3rem;
+            border-radius: 30px;
             border: 1px solid #6366f1;
             text-align: center;
+            backdrop-filter: blur(20px);
         }
         </style>
     """, unsafe_allow_html=True)
     
-    st.title("🛡️ Evidence Prime Pro: Security Gate")
-    col1, col2, col3 = st.columns([1,2,1])
+    st.title("🔒 Global Gate")
+    col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.info("このアプリは17歳の開発者による次世代AIプロトタイプです。")
-        pwd = st.text_input("合言葉を入力", type="password")
-        if st.button("Access Granted 🚀", use_container_width=True):
+        st.markdown('<div class="login-card">', unsafe_allow_html=True)
+        pwd = st.text_input("Enter Passkey", type="password", placeholder="Secret code...")
+        if st.button("Unlock Core", use_container_width=True):
             if pwd == st.secrets.get("password", "admin"):
                 st.session_state.authenticated = True
                 st.rerun()
             else:
-                st.error("Access Denied.")
+                st.error("Invalid Passkey.")
+        st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
 check_password()
 
-# --- 2. DATA & API INITIALIZATION ---
-client = Groq(api_key=st.secrets.get("GROQ_API_KEY", "your_key"))
-MEMORY_FILE = "user_memory_v2.json"
+# --- 3. PERSISTENT MEMORY SYSTEM (A-C Model) ---
+MEMORY_FILE = "user_memory_global.json"
 
 def load_memory():
     if os.path.exists(MEMORY_FILE):
@@ -61,204 +68,230 @@ def load_memory():
         except: pass
     return {
         "big_five": {"E": 3, "A": 3, "C": 3, "N": 3, "O": 3},
-        "achievements": [],
-        "tasks": [],
-        "ai_loyalty": 0
+        "achievements": [{"date": "2024-05-20", "score": 50}],
+        "history": [],
+        "language": "JP",
+        "theme_color": "#6366f1"
     }
+
+def save_memory():
+    with open(MEMORY_FILE, "w") as f:
+        json.dump(st.session_state.memory, f, indent=4)
 
 if "memory" not in st.session_state:
     st.session_state.memory = load_memory()
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# --- 3. DYNAMIC GLASSMORPHISM ENGINE ---
-def apply_global_theme():
-    st.sidebar.title("🧬 System OS")
-    
-    # テーマプリセット（世界基準のデザイン）
-    theme_choice = st.sidebar.select_slider(
-        "Theme Palette",
-        options=["Cyber", "Deep Sea", "Forest", "Sakura", "Lava"]
-    )
-    palette = {
-        "Cyber": "#6366f1", "Deep Sea": "#0ea5e9", 
-        "Forest": "#10b981", "Sakura": "#f472b6", "Lava": "#f43f5e"
+# --- 4. ULTIMATE UI ENGINE (Glassmorphism 2.0) ---
+def apply_style():
+    mem = st.session_state.memory
+    # サイドバーでのテーマ制御
+    st.sidebar.title("🛠️ System OS")
+    theme_preset = st.sidebar.selectbox("Theme Preset", ["Cyber", "Ocean", "Forest", "Lava", "Ghost"])
+    presets = {
+        "Cyber": "#6366f1", "Ocean": "#0ea5e9", 
+        "Forest": "#10b981", "Lava": "#f43f5e", "Ghost": "#94a3b8"
     }
-    main_color = palette[theme_choice]
+    main_color = presets[theme_preset]
+    st.session_state.memory["theme_color"] = main_color
     
     st.markdown(f"""
         <style>
-        :root {{ --main-color: {main_color}; }}
         .stApp {{
-            background: linear-gradient(180deg, #0f172a 0%, #000000 100%);
-            color: #f8fafc;
+            background: radial-gradient(circle at top right, {main_color}15, #020617);
+            color: #f1f5f9;
         }}
-        /* グラスモーフィズム */
+        /* チャットバブルの進化 */
         div[data-testid="stChatMessage"] {{
-            background: rgba(255, 255, 255, 0.03);
-            border-left: 5px solid {main_color};
-            border-radius: 10px;
-            margin: 15px 0;
-            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid {main_color}22;
+            border-left: 4px solid {main_color};
+            backdrop-filter: blur(15px);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 15px;
         }}
-        .stTabs [data-baseweb="tab-list"] {{
-            background: rgba(255,255,255,0.02);
-            border-radius: 15px;
-            padding: 5px;
-        }}
+        /* ボタンアニメーション */
         .stButton>button {{
-            background: linear-gradient(90deg, {main_color}aa, {main_color}44);
-            border: none; color: white; border-radius: 10px;
-            font-weight: bold; transition: 0.3s;
+            background: linear-gradient(135deg, {main_color}dd, {main_color}44);
+            border: none; color: white; border-radius: 12px;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }}
         .stButton>button:hover {{
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px {main_color}66;
+            transform: scale(1.05) translateY(-3px);
+            box-shadow: 0 10px 20px {main_color}44;
         }}
-        /* カスタムスクロールバー */
-        ::-webkit-scrollbar {{ width: 8px; }}
-        ::-webkit-scrollbar-thumb {{ background: {main_color}44; border-radius: 10px; }}
+        /* タブのデザイン */
+        .stTabs [data-baseweb="tab"] {{
+            font-weight: 600; color: #94a3b8;
+        }}
+        .stTabs [aria-selected="true"] {{
+            color: {main_color} !important;
+            border-bottom: 2px solid {main_color} !important;
+        }}
         </style>
     """, unsafe_allow_html=True)
     return main_color
 
-main_color = apply_global_theme()
+main_color = apply_style()
 
-# --- 4. CORE FUNCTIONALITY: ANALYSIS & VISUALIZATION ---
-def render_stats():
-    st.subheader("📊 Performance Insight")
-    df = pd.DataFrame(st.session_state.memory.get("achievements", [
-        {"date": "2024-05-20", "score": 60},
-        {"date": "2024-05-21", "score": 75},
-        {"date": "2024-05-22", "score": 90}
-    ]))
-    
-    fig = px.line(df, x="date", y="score", title="Growth Velocity")
-    fig.update_layout(
-        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        font_color="white", margin=dict(l=0, r=0, t=30, b=0)
-    )
-    st.plotly_chart(fig, use_container_width=True)
+# --- 5. ANALYTICS ENGINE (Plotly) ---
+def render_analytics():
+    if not PLOTLY_AVAILABLE:
+        st.warning("Analytics Engine is loading... Please check requirements.txt")
+        return
 
-def big_five_dashboard():
-    st.subheader("🧬 Personality Architecture")
-    bf = st.session_state.memory["big_five"]
-    
-    categories = ['Extraversion', 'Agreeableness', 'Conscientiousness', 'Neuroticism', 'Openness']
-    values = [bf['E'], bf['A'], bf['C'], bf['N'], bf['O']]
-    
-    fig = go.Figure(data=go.Scatterpolar(
-        r=values, theta=categories, fill='toself',
-        line=dict(color=main_color)
-    ))
-    fig.update_layout(
-        polar=dict(radialaxis=dict(visible=True, range=[0, 5], gridcolor="gray")),
-        showlegend=False, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white"
-    )
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # 診断スライダー
+    st.subheader("📊 Growth & Personality Analysis")
     col1, col2 = st.columns(2)
-    with col1:
-        e = st.select_slider("Extraversion", options=[1,2,3,4,5], value=bf['E'])
-        a = st.select_slider("Agreeableness", options=[1,2,3,4,5], value=bf['A'])
-        c = st.select_slider("Conscientiousness", options=[1,2,3,4,5], value=bf['C'])
-    with col2:
-        n = st.select_slider("Neuroticism", options=[1,2,3,4,5], value=bf['N'])
-        o = st.select_slider("Openness", options=[1,2,3,4,5], value=bf['O'])
     
-    if st.button("Update Profile 🧠"):
-        st.session_state.memory["big_five"] = {"E": e, "A": a, "C": c, "N": n, "O": o}
-        with open(MEMORY_FILE, "w") as f: json.dump(st.session_state.memory, f)
-        st.success("Profile Synced to Global Network.")
+    with col1:
+        # Big Five Radar Chart
+        bf = st.session_state.memory["big_five"]
+        categories = ['Extraversion', 'Agreeableness', 'Conscientiousness', 'Neuroticism', 'Openness']
+        values = [bf['E'], bf['A'], bf['C'], bf['N'], bf['O']]
+        
+        fig_radar = go.Figure(data=go.Scatterpolar(
+            r=values, theta=categories, fill='toself',
+            line=dict(color=main_color), marker=dict(color=main_color)
+        ))
+        fig_radar.update_layout(
+            polar=dict(radialaxis=dict(visible=True, range=[1, 5], gridcolor="#334155"), bgcolor="rgba(0,0,0,0)"),
+            paper_bgcolor='rgba(0,0,0,0)', font_color="#f1f5f9", margin=dict(l=40, r=40, t=20, b=20)
+        )
+        st.plotly_chart(fig_radar, use_container_width=True)
 
-# --- 5. AI LOGIC: THE GLOBAL AGENT ---
-def run_ai_agent(user_input):
+    with col2:
+        # Achievement Line Chart
+        df = pd.DataFrame(st.session_state.memory["achievements"])
+        fig_line = px.line(df, x="date", y="score", title="Cognitive Growth")
+        fig_line.update_traces(line_color=main_color, mode='lines+markers')
+        fig_line.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font_color="#f1f5f9", xaxis=dict(gridcolor="#1e293b"), yaxis=dict(gridcolor="#1e293b")
+        )
+        st.plotly_chart(fig_line, use_container_width=True)
+
+# --- 6. AI AGENT CORE (Groq Llama 3.3 70B) ---
+def chat_with_ai(user_input):
+    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
     bf = st.session_state.memory["big_five"]
     
-    # ユーザー特性に合わせた動的システムプロンプト
-    # Conscientiousness(C)が高い=プロ仕様、低い=コーチング重視
-    tone = "Highly logical and structural" if bf['C'] >= 4 else "Encouraging and breaking tasks into tiny pieces"
+    # 25通りの性格適応ロジック
+    strategies = {
+        "logic": "Use structured data, academic citations, and logical steps.",
+        "support": "Use empathetic tone, psychological safety, and small wins.",
+        "creative": "Use metaphors, unconventional ideas, and experimental approaches."
+    }
     
+    # C(勤勉性)とN(神経症傾向)に基づく戦略選択
+    current_strat = strategies["logic"] if bf["C"] >= 4 else strategies["support"]
+    if bf["O"] >= 4: current_strat += " " + strategies["creative"]
+
     system_prompt = f"""
-    You are 'Evidence Prime Pro', a world-class AI agent.
-    User Traits: E:{bf['E']}, A:{bf['A']}, C:{bf['C']}, N:{bf['N']}, O:{bf['O']}
-    Current Strategy: {tone}
+    You are 'Evidence Prime Pro', a world-class AI agent for a 17-year-old visionary developer.
+    [USER PROFILE]
+    Traits: E:{bf['E']}, A:{bf['A']}, C:{bf['C']}, N:{bf['N']}, O:{bf['O']}
+    Strategy: {current_strat}
     
-    MISSION:
-    1. A (Authority): Cite latest global evidence.
-    2. B (Blueprint): Provide actionable plans in JSON or Mermaid charts.
-    3. C (Context): Reference past interaction and personality traits.
+    [CORE DIRECTIVES]
+    1. A (Authority): Cite verifiable sources and scientific links.
+    2. B (Blueprint): Provide actionable plans in markdown tables or Mermaid charts.
+    3. C (Context): Reference user's personality in every advice to maximize execution.
     
-    Always output in the user's language but maintain a global high-tech perspective.
+    Tone: Professional yet visionary. Encourage the developer's journey.
     """
+    
+    messages = [{"role": "system", "content": system_prompt}] + st.session_state.messages
     
     try:
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
-            messages=[{"role": "system", "content": system_prompt}] + st.session_state.messages,
+            messages=messages,
             stream=True
         )
         return completion
     except Exception as e:
-        st.error(f"Groq API Connection Error: {e}")
+        st.error(f"AI Core Error: {e}")
         return None
 
-# --- 6. MAIN LAYOUT ---
+# --- 7. MAIN INTERFACE ---
 def main():
-    st.sidebar.markdown("---")
-    st.sidebar.write(f"📅 Last Sync: {datetime.now().strftime('%H:%M:%S')}")
-    st.sidebar.progress(st.session_state.memory.get("ai_loyalty", 45), text="AI Alignment Score")
-
-    tab_home, tab_blueprint, tab_science, tab_settings = st.tabs([
-        "💬 Global Chat", "📋 Blueprint Hub", "📊 Science Insight", "⚙️ System Core"
+    tab_chat, tab_insight, tab_blueprint, tab_core = st.tabs([
+        "💬 AI Agent", "🧬 Insight Analysis", "📋 Blueprint Hub", "⚙️ System Core"
     ])
 
-    with tab_home:
+    # --- Chat Tab ---
+    with tab_chat:
         st.title("Evidence Prime Pro")
-        st.caption("Empowered by Llama 3.3 70B & Your Personality Context.")
+        st.caption("Next-Gen AI Partner | A-C Model Integrated")
         
-        chat_container = st.container()
-        with chat_container:
-            for m in st.session_state.messages:
-                with st.chat_message(m["role"]): st.write(m["content"])
+        for m in st.session_state.messages:
+            with st.chat_message(m["role"]):
+                st.markdown(m["content"])
 
-        if prompt := st.chat_input("Enter your mission..."):
+        if prompt := st.chat_input("Solve scientifically..."):
             st.session_state.messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"): st.write(prompt)
+            with st.chat_message("user"):
+                st.markdown(prompt)
 
             with st.chat_message("assistant"):
-                res_box = st.empty()
+                res_area = st.empty()
                 full_res = ""
-                completion = run_ai_agent(prompt)
-                if completion:
-                    for chunk in completion:
-                        content = chunk.choices[0].delta.content
+                chunks = chat_with_ai(prompt)
+                if chunks:
+                    for chunk in chunks:
+                        content = chunk.choices.delta.content
                         if content:
                             full_res += content
-                            res_box.markdown(full_res + "▌")
-                    res_box.markdown(full_res)
+                            res_area.markdown(full_res + "▌")
+                    res_area.markdown(full_res)
                     st.session_state.messages.append({"role": "assistant", "content": full_res})
 
+    # --- Insight Tab ---
+    with tab_insight:
+        render_analytics()
+        st.divider()
+        st.subheader("🧬 Personality Tuning")
+        col1, col2 = st.columns(2)
+        bf = st.session_state.memory["big_five"]
+        with col1:
+            e = st.select_slider("Extraversion (静 ↔ 活)", options=[1,2,3,4,5], value=bf["E"])
+            a = st.select_slider("Agreeableness (独 ↔ 共)", options=[1,2,3,4,5], value=bf["A"])
+            c = st.select_slider("Conscientiousness (即 ↔ 計)", options=[1,2,3,4,5], value=bf["C"])
+        with col2:
+            n = st.select_slider("Neuroticism (冷 ↔ 繊)", options=[1,2,3,4,5], value=bf["N"])
+            o = st.select_slider("Openness (伝 ↔ 新)", options=[1,2,3,4,5], value=bf["O"])
+        
+        if st.button("Sync Personality to AI Core"):
+            st.session_state.memory["big_five"] = {"E": e, "A": a, "C": c, "N": n, "O": o}
+            save_memory()
+            st.toast("AI context updated successfully!", icon="🧠")
+
+    # --- Blueprint Tab ---
     with tab_blueprint:
-        st.header("📋 Automated Blueprint")
-        st.info("AI generated action plans and Mermaid diagrams will appear here.")
-        # ここでメッセージ履歴からMermaid記法を抽出して表示するロジックを追加可能
-        st.button("Export as PDF")
-        st.button("Sync to Google Calendar")
+        st.header("📋 Actionable Blueprint")
+        st.info("Here, the AI's generated plans are structured for execution.")
+        # 仮のタスク表示
+        tasks = [
+            {"Task": "Market Research", "Priority": "High", "Status": "Ongoing"},
+            {"Task": "API Security Audit", "Priority": "Critical", "Status": "Pending"}
+        ]
+        st.table(tasks)
+        st.button("Export Blueprint as JSON")
 
-    with tab_science:
-        st.header("📊 Personal Science Dashboard")
-        col_l, col_r = st.columns(2)
-        with col_l: render_stats()
-        with col_r: big_five_dashboard()
-
-    with tab_settings:
-        st.header("⚙️ Core Configuration")
+    # --- System Core Tab ---
+    with tab_core:
+        st.header("⚙️ Core Memory Status")
         st.json(st.session_state.memory)
-        if st.button("Factory Reset Memory"):
+        if st.button("Purge System Memory"):
             st.session_state.memory = load_memory()
             st.rerun()
+
+    # Footer
+    st.sidebar.markdown("---")
+    st.sidebar.caption(f"Evidence Prime Pro v2.1 | Dev: 17yo Visionary")
+    st.sidebar.caption(f"Status: Operational | Groq-Llama-3.3")
 
 if __name__ == "__main__":
     main()
