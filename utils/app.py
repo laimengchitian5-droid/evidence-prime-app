@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import json
 import os
-import re
 from datetime import datetime
 from groq import Groq
 
@@ -27,37 +26,23 @@ def check_password():
     if st.session_state.get("authenticated"):
         return True
     
-    st.markdown("""
-        <style>
-        .login-card {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 2rem;
-            border-radius: 20px;
-            border: 1px solid #6366f1;
-            text-align: center;
-            backdrop-filter: blur(15px);
-        }
-        </style>
-    """, unsafe_allow_html=True)
-    
     st.title("🔒 Evidence Prime Pro ゲート")
-    col1, col2, col3 = st.columns([1,2,1])
+    target_pwd = st.secrets.get("password", "admin")
+    
+    col1, col2, col3 = st.columns()
     with col2:
-        st.markdown('<div class="login-card">', unsafe_allow_html=True)
-        target_pwd = st.secrets.get("password", "admin")
         pwd = st.text_input("合言葉を入力", type="password")
         if st.button("システム起動 🚀", use_container_width=True):
             if pwd == target_pwd:
                 st.session_state.authenticated = True
                 st.rerun()
             else:
-                st.error("認証失敗。合言葉を確認してください。")
-        st.markdown('</div>', unsafe_allow_html=True)
+                st.error("認証失敗。")
     st.stop()
 
 check_password()
 
-# --- 3. 記憶システム (C: Context) ---
+# --- 3. 記憶システム ---
 MEMORY_FILE = "user_memory_global.json"
 
 def load_memory():
@@ -80,7 +65,7 @@ if "memory" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# --- 4. デザインエンジン（動的テーマ） ---
+# --- 4. デザインエンジン ---
 def apply_ui_theme():
     st.sidebar.title("🛠️ Control Panel")
     theme_choice = st.sidebar.select_slider("テーマ", options=["Cyber", "Ocean", "Forest", "Lava"])
@@ -106,7 +91,7 @@ def apply_ui_theme():
 
 main_color = apply_ui_theme()
 
-# --- 5. AIコア (A-Cモデル) ---
+# --- 5. AIコア ---
 def run_ai_agent():
     api_key = st.secrets.get("GROQ_API_KEY")
     if not api_key:
@@ -117,14 +102,10 @@ def run_ai_agent():
     bf = st.session_state.memory["big_five"]
     lang = st.session_state.memory["language"]
     
-    strat = "構造的・論理的" if bf['C'] >= 4 else "ステップバイステップ・共感的"
-    
     system_prompt = f"""
     あなたは『Evidence Prime Pro』です。言語は {lang} で回答してください。
-    【A-Cモデル運用】
-    - A (Authority): 科学的根拠を引用。
-    - B (Blueprint): 行動計画をテーブルやMermaid図解で提示。
-    - C (Context): 特性（外向:{bf['E']}, 協調:{bf['A']}, 勤勉:{bf['C']}, 繊細:{bf['N']}, 開放:{bf['O']}）に最適化せよ。
+    【特性適応】外向:{bf['E']}, 協調:{bf['A']}, 勤勉:{bf['C']}, 繊細:{bf['N']}, 開放:{bf['O']}
+    科学的根拠(A)、図解(B)、性格適応(C)を徹底せよ。
     """
     
     try:
@@ -137,7 +118,7 @@ def run_ai_agent():
         st.error(f"AIエラー: {e}")
         return None
 
-# --- 6. メインレイアウト ---
+# --- 6. メインインターフェース ---
 def main():
     tab_chat, tab_insight, tab_blueprint, tab_memory = st.tabs(["💬 Chat", "🧬 Insight", "📅 Plan", "📊 Bank"])
 
@@ -156,8 +137,9 @@ def main():
                 completion = run_ai_agent()
                 if completion:
                     for chunk in completion:
-                        if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
-                            delta = chunk.choices.delta
+                        # 修正ポイント: chunk.choices[0] 形式に変更
+                        if chunk.choices and len(chunk.choices) > 0:
+                            delta = chunk.choices[0].delta
                             if hasattr(delta, 'content') and delta.content:
                                 full_res += delta.content
                                 res_box.markdown(full_res + "▌")
@@ -172,8 +154,7 @@ def main():
                 r=[bf['E'], bf['A'], bf['C'], bf['N'], bf['O']],
                 theta=['外向性', '協調性', '勤勉性', '神経症', '開放性'], fill='toself', line_color=main_color
             ))
-            # range を に修正 (バグ解消ポイント)
-            fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[1, 5])), paper_bgcolor='rgba(0,0,0,0)', font_color="white")
+            fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 5])), paper_bgcolor='rgba(0,0,0,0)', font_color="white")
             st.plotly_chart(fig, use_container_width=True)
 
         opts = [1, 2, 3, 4, 5]
@@ -193,8 +174,7 @@ def main():
 
     with tab_blueprint:
         st.header("📅 アクションプラン")
-        df_plan = pd.DataFrame({"曜": ["月","火","水","木","金","土","日"], "重点": ["分析"]*7, "進捗": ["未"]*7})
-        st.table(df_plan)
+        st.info("対話を通じて生成された計画が表示されます。")
 
     with tab_memory:
         st.json(st.session_state.memory)
