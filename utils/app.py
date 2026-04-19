@@ -2,10 +2,11 @@ import streamlit as st
 import pandas as pd
 import json
 import os
+import re
 from datetime import datetime
 from groq import Groq
 
-# Plotlyのインポート（環境エラー対策）
+# Plotlyのインポート
 try:
     import plotly.express as px
     import plotly.graph_objects as go
@@ -15,10 +16,10 @@ except ImportError:
 
 # --- 1. 基本設定 ---
 st.set_page_config(
-    page_title="Evidence Prime Pro",
+    page_title="Evidence Prime Pro | Global",
     page_icon="🧬",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 # --- 2. セキュリティ（合言葉認証） ---
@@ -26,25 +27,38 @@ def check_password():
     if st.session_state.get("authenticated"):
         return True
     
-    st.title("🔒 システムアクセス認証")
-    # Secretsから取得、なければデフォルト 'admin'
-    target_pwd = st.secrets.get("password", "admin")
+    st.markdown("""
+        <style>
+        .login-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 2rem;
+            border-radius: 20px;
+            border: 1px solid #6366f1;
+            text-align: center;
+            backdrop-filter: blur(15px);
+        }
+        </style>
+    """, unsafe_allow_html=True)
     
+    st.title("🔒 Evidence Prime Pro ゲート")
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
-        pwd = st.text_input("合言葉を入力してください", type="password")
-        if st.button("ログイン 🚀", use_container_width=True):
+        st.markdown('<div class="login-card">', unsafe_allow_html=True)
+        target_pwd = st.secrets.get("password", "admin")
+        pwd = st.text_input("合言葉を入力", type="password")
+        if st.button("システム起動 🚀", use_container_width=True):
             if pwd == target_pwd:
                 st.session_state.authenticated = True
                 st.rerun()
             else:
-                st.error("合言葉が正しくありません。")
+                st.error("認証失敗。合言葉を確認してください。")
+        st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
 check_password()
 
-# --- 3. 記憶システム ---
-MEMORY_FILE = "user_memory_v3.json"
+# --- 3. 記憶システム (C: Context) ---
+MEMORY_FILE = "user_memory_global.json"
 
 def load_memory():
     if os.path.exists(MEMORY_FILE):
@@ -53,7 +67,9 @@ def load_memory():
         except: pass
     return {
         "big_five": {"E": 3, "A": 3, "C": 3, "N": 3, "O": 3},
-        "achievements": [{"date": datetime.now().strftime("%Y-%m-%d"), "score": 50}]
+        "achievements": [{"date": datetime.now().strftime("%Y-%m-%d"), "score": 50}],
+        "language": "日本語",
+        "chat_summary": ""
     }
 
 def save_memory():
@@ -65,56 +81,55 @@ if "memory" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# --- 4. デザインエンジン（モバイル最適化） ---
+# --- 4. デザインエンジン（動的テーマ） ---
 def apply_ui_theme():
-    # サイドバーでのテーマ制御
-    st.sidebar.title("🛠️ 設定")
-    theme_choice = st.sidebar.select_slider(
-        "テーマ",
-        options=["サイバー", "オーシャン", "ラヴァ"]
-    )
-    palette = {"サイバー": "#6366f1", "オーシャン": "#0ea5e9", "ラヴァ": "#f43f5e"}
+    st.sidebar.title("🛠️ Control Panel")
+    theme_choice = st.sidebar.select_slider("Theme", options=["Cyber", "Ocean", "Forest", "Lava"])
+    palette = {"Cyber": "#6366f1", "Ocean": "#0ea5e9", "Forest": "#10b981", "Lava": "#f43f5e"}
     main_color = palette[theme_choice]
     
+    # 言語切り替え機能の復活
+    lang = st.sidebar.selectbox("Language", ["日本語", "English", "Korean", "Chinese"])
+    st.session_state.memory["language"] = lang
+
     st.markdown(f"""
         <style>
-        .stApp {{
-            background: radial-gradient(circle at top right, {main_color}15, #020617);
-            color: #f1f5f9;
-        }}
+        .stApp {{ background: radial-gradient(circle at top right, {main_color}15, #020617); color: #f1f5f9; }}
         div[data-testid="stChatMessage"] {{
             background: rgba(255, 255, 255, 0.02);
             border-left: 4px solid {main_color};
-            border-radius: 12px;
             backdrop-filter: blur(10px);
-            padding: 15px;
-            margin-bottom: 10px;
+            border-radius: 15px; margin-bottom: 10px;
         }}
-        .stButton>button {{
-            background: {main_color}aa;
-            color: white; border-radius: 10px; border: none;
-            width: 100%;
-        }}
+        .stButton>button {{ background: {main_color}aa; color: white; border-radius: 12px; border: none; width: 100%; }}
         </style>
     """, unsafe_allow_html=True)
     return main_color
 
 main_color = apply_ui_theme()
 
-# --- 5. AIコア（AttributeError対策済み） ---
+# --- 5. AIコア (A-Cモデル & バグ対策) ---
 def run_ai_agent():
     api_key = st.secrets.get("GROQ_API_KEY")
     if not api_key:
-        st.error("APIキーが設定されていません。")
+        st.error("APIキー未設定。")
         return None
     
     client = Groq(api_key=api_key)
     bf = st.session_state.memory["big_five"]
+    lang = st.session_state.memory["language"]
+    
+    # 性格適応ロジック
+    strat = "構造的・論理的" if bf['C'] >= 4 else "ステップバイステップ・共感的"
     
     system_prompt = f"""
-    あなたは『Evidence Prime Pro』です。日本語で回答してください。
-    ユーザー性格特性: 外向性:{bf['E']}, 協調性:{bf['A']}, 勤勉性:{bf['C']}, 神経症傾向:{bf['N']}, 開放性:{bf['O']}
-    科学的根拠(A)、図解(B)、性格適応(C)を徹底せよ。
+    あなたは『Evidence Prime Pro』です。言語は {lang} で回答してください。
+    【A-Cモデル運用】
+    - A (Authority): 科学的根拠を引用し[ソース]を明記。
+    - B (Blueprint): 行動計画をテーブルやMermaid図解で提示。
+    - C (Context): 以下の特性に最適化せよ。
+      特性: 外向:{bf['E']}, 協調:{bf['A']}, 勤勉:{bf['C']}, 繊細:{bf['N']}, 開放:{bf['O']}
+      戦略: {strat}
     """
     
     try:
@@ -129,14 +144,15 @@ def run_ai_agent():
 
 # --- 6. メインレイアウト ---
 def main():
-    tab_chat, tab_insight, tab_blueprint = st.tabs(["💬 チャット", "🧬 分析", "📋 計画"])
+    tab_chat, tab_insight, tab_blueprint, tab_memory = st.tabs(["💬 Chat", "🧬 Insight", "📅 Plan", "📊 Bank"])
 
+    # --- Chat Tab ---
     with tab_chat:
         st.title("Evidence Prime Pro")
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"])
 
-        if prompt := st.chat_input("メッセージを入力..."):
+        if prompt := st.chat_input("課題を入力..."):
             st.session_state.messages.append({"role": "user", "content": prompt})
             with st.chat_message("user"): st.markdown(prompt)
 
@@ -146,7 +162,7 @@ def main():
                 completion = run_ai_agent()
                 if completion:
                     for chunk in completion:
-                        if hasattr(chunk, 'choices') and chunk.choices:
+                        if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
                             delta = chunk.choices.delta
                             if hasattr(delta, 'content') and delta.content:
                                 full_res += delta.content
@@ -154,38 +170,50 @@ def main():
                     res_box.markdown(full_res)
                     st.session_state.messages.append({"role": "assistant", "content": full_res})
 
+    # --- Insight Tab (Big Five) ---
     with tab_insight:
-        st.subheader("🧬 性格・成長分析")
+        st.subheader("🧬 科学的プロファイル分析")
         if PLOTLY_AVAILABLE:
             bf = st.session_state.memory["big_five"]
             fig = go.Figure(data=go.Scatterpolar(
                 r=[bf['E'], bf['A'], bf['C'], bf['N'], bf['O']],
-                theta=['外向', '協調', '勤勉', '繊細', '開放'], fill='toself', line_color=main_color
+                theta=['外向性', '協調性', '勤勉性', '神経症', '開放性'], fill='toself', line_color=main_color
             ))
-            fig.update_layout(
-                polar=dict(radialaxis=dict(visible=True, range=[0,5])),
-                paper_bgcolor='rgba(0,0,0,0)', font_color="white", height=350
-            )
+            fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=)), paper_bgcolor='rgba(0,0,0,0)', font_color="white")
             st.plotly_chart(fig, use_container_width=True)
 
-        st.divider()
-        opts = [1, 2, 3, 4, 5]
+        opts =
         col1, col2 = st.columns(2)
         with col1:
             e = st.select_slider("外向性", options=opts, value=bf['E'])
+            a = st.select_slider("協調性", options=opts, value=bf['A'])
             c = st.select_slider("勤勉性", options=opts, value=bf['C'])
         with col2:
             n = st.select_slider("神経症傾向", options=opts, value=bf['N'])
             o = st.select_slider("開放性", options=opts, value=bf['O'])
         
-        if st.button("プロファイルを同期 🧠"):
-            st.session_state.memory["big_five"].update({"E":e, "C":c, "N":n, "O":o})
+        if st.button("プロファイルを永久同期 🧠"):
+            st.session_state.memory["big_five"] = {"E":e, "A":a, "C":c, "N":n, "O":o}
             save_memory()
-            st.success("同期完了！")
+            st.success("AIの思考回路をアップデートしました。")
 
+    # --- Blueprint Tab (スケジュール & 図解) ---
     with tab_blueprint:
-        st.header("📋 アクションプラン")
-        st.table(pd.DataFrame([{"項目": "準備中", "詳細": "対話を開始してください"}]))
+        st.header("📅 週間アクションプラン")
+        # 簡易的な週間テーブルの表示機能
+        days = ["月", "火", "水", "木", "金", "土", "日"]
+        df_plan = pd.DataFrame({"曜": days, "重点項目": ["分析"]*7, "進捗": ["未着手"]*7})
+        st.table(df_plan)
+        st.download_button("プランをCSVで保存", df_plan.to_csv().encode('utf-8'), "blueprint.csv")
+        st.info("※チャットで詳細な指示を出すと、AIが個別のMermaid図解を生成します。")
+
+    # --- Memory Bank Tab ---
+    with tab_memory:
+        st.header("📊 長期記憶バンク")
+        st.json(st.session_state.memory)
+        if st.button("ファクトリーリセット"):
+            st.session_state.memory = load_memory()
+            st.rerun()
 
 if __name__ == "__main__":
     main()
