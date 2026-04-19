@@ -725,13 +725,7 @@ def evidence_prime_pro_core():
     for msg in st.session_state.tabs[active_tab]:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
-
-    # 入力欄
-    if prompt := st.chat_input("問いを立てる..."):
-        st.session_state.tabs[active_tab].append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        
+      
         # AI応答（仮）
         with st.chat_message("assistant"):
             response = "AI基盤接続完了。ここに知能を統合します。"
