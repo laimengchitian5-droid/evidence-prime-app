@@ -44,21 +44,20 @@ def check_password():
     with col2:
         st.markdown('<div class="login-card">', unsafe_allow_html=True)
         st.write("17歳の開発者による次世代AIプラットフォーム")
-        # Secretsから取得、なければデフォルト 'admin'
         target_pwd = st.secrets.get("password", "admin")
-        pwd = st.text_input("合言葉（パスキー）を入力してください", type="password")
+        pwd = st.text_input("合言葉を入力してください", type="password")
         if st.button("コア・システムを起動 🚀", use_container_width=True):
             if pwd == target_pwd:
                 st.session_state.authenticated = True
                 st.rerun()
             else:
-                st.error("合言葉が正しくありません。Secretsの設定を確認してください。")
+                st.error("合言葉が正しくありません。")
         st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
 check_password()
 
-# --- 3. 記憶システム (A-Cモデル) ---
+# --- 3. 記憶システム ---
 MEMORY_FILE = "user_memory_v2.json"
 
 def load_memory():
@@ -81,7 +80,7 @@ if "memory" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# --- 4. デザインエンジン（グラスモーフィズム2.0） ---
+# --- 4. デザインエンジン ---
 def apply_ui_theme():
     st.sidebar.title("🛠️ システム制御板")
     theme_choice = st.sidebar.select_slider(
@@ -110,11 +109,6 @@ def apply_ui_theme():
         .stButton>button {{
             background: linear-gradient(90deg, {main_color}aa, {main_color}44);
             border: none; color: white; border-radius: 12px;
-            transition: 0.3s;
-        }}
-        .stButton>button:hover {{
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px {main_color}66;
         }}
         </style>
     """, unsafe_allow_html=True)
@@ -122,17 +116,16 @@ def apply_ui_theme():
 
 main_color = apply_ui_theme()
 
-# --- 5. 解析エンジン (Plotly) ---
+# --- 5. 解析エンジン (修正済み) ---
 def render_analysis_tab():
     if not PLOTLY_AVAILABLE:
-        st.warning("解析エンジンをロード中... requirements.txt を確認してください。")
+        st.warning("解析エンジンをロード中...")
         return
 
-    st.subheader("📊 性格・成長分析ダッシュボード")
+    st.subheader("📊 性格・成長分析")
     col1, col2 = st.columns(2)
     
     with col1:
-        # Big Five レーダーチャート
         bf = st.session_state.memory["big_five"]
         categories = ['外向性', '協調性', '勤勉性', '神経症傾向', '開放性']
         values = [bf['E'], bf['A'], bf['C'], bf['N'], bf['O']]
@@ -141,42 +134,34 @@ def render_analysis_tab():
             r=values, theta=categories, fill='toself',
             line=dict(color=main_color), marker=dict(color=main_color)
         ))
+        # range=[1, 5] を明記してバグを修正
         fig_radar.update_layout(
-            polar=dict(radialaxis=dict(visible=True, range=, gridcolor="#334155"), bgcolor="rgba(0,0,0,0)"),
+            polar=dict(radialaxis=dict(visible=True, range=[1, 5], gridcolor="#334155"), bgcolor="rgba(0,0,0,0)"),
             paper_bgcolor='rgba(0,0,0,0)', font_color="#f1f5f9"
         )
         st.plotly_chart(fig_radar, use_container_width=True)
 
     with col2:
-        # 成長曲線
         df = pd.DataFrame(st.session_state.memory["achievements"])
         fig_line = px.line(df, x="date", y="score", title="知的成長速度")
         fig_line.update_traces(line_color=main_color, mode='lines+markers')
         fig_line.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="#f1f5f9")
         st.plotly_chart(fig_line, use_container_width=True)
 
-# --- 6. AIエージェント・コア (Groq Llama 3.3 70B) ---
+# --- 6. AIコア ---
 def run_ai_agent(user_input):
-    client = Groq(api_key=st.secrets.get("GROQ_API_KEY"))
+    api_key = st.secrets.get("GROQ_API_KEY")
+    if not api_key:
+        st.error("GROQ_API_KEY が設定されていません。")
+        return None
+    
+    client = Groq(api_key=api_key)
     bf = st.session_state.memory["big_five"]
     
-    # 性格に基づく戦略
-    c_strategy = "論理的・構造的なタスクリストを提示" if bf['C'] >= 4 else "心理的ハードルを下げ、5分で終わる単位まで分解して提示"
-    n_strategy = "共感的・肯定的な表現を徹底し安心感を与える" if bf['N'] >= 4 else "客観的事実と数字に基づいたストレートな助言を行う"
-    
     system_prompt = f"""
-    あなたは『Evidence Prime Pro』です。17歳の天才開発者の相棒として振る舞ってください。
-    
-    【ユーザー性格特性】
-    - スコア: 外向性:{bf['E']}, 協調性:{bf['A']}, 勤勉性:{bf['C']}, 神経症傾向:{bf['N']}, 開放性:{bf['O']}
-    - 適応戦略: {c_strategy} かつ {n_strategy}
-    
-    【行動指針】
-    1. A (Authority): 科学的根拠を引用し、[出典]を明記せよ。
-    2. B (Blueprint): 行動計画をテーブル形式や図解（Mermaid）で提示せよ。
-    3. C (Context): ユーザーの性格スコアと過去の対話を100%考慮したアドバイスを行え。
-    
-    全て日本語で回答し、開発者の情熱を最大化するメンターとして振る舞ってください。
+    あなたは『Evidence Prime Pro』です。
+    ユーザー性格特性: 外向性:{bf['E']}, 協調性:{bf['A']}, 勤勉性:{bf['C']}, 神経症傾向:{bf['N']}, 開放性:{bf['O']}
+    上記特性に基づき、科学的根拠(A)、図解(B)、性格適応(C)を徹底して日本語で回答せよ。
     """
     
     try:
@@ -186,23 +171,18 @@ def run_ai_agent(user_input):
             stream=True
         )
     except Exception as e:
-        st.error(f"AI Core エラー: {e}")
+        st.error(f"AIエラー: {e}")
         return None
 
-# --- 7. メインインターフェース ---
+# --- 7. メインUI ---
 def main():
-    tab_chat, tab_insight, tab_blueprint, tab_core = st.tabs([
-        "💬 対話エージェント", "🧬 性格・分析", "📋 行動計画ハブ", "⚙️ システム管理"
-    ])
+    tab_chat, tab_insight, tab_blueprint, tab_core = st.tabs(["💬 対話", "🧬 分析", "📋 計画", "⚙️ 管理"])
 
     with tab_chat:
-        st.title("Evidence Prime Pro")
-        st.caption("A-Cモデル搭載：科学的根拠と性格適応による究極のパーソナルAI")
-        
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"])
 
-        if prompt := st.chat_input("解決したい課題や目標を入力してください..."):
+        if prompt := st.chat_input("課題を入力..."):
             st.session_state.messages.append({"role": "user", "content": prompt})
             with st.chat_message("user"): st.markdown(prompt)
 
@@ -221,38 +201,31 @@ def main():
 
     with tab_insight:
         render_analysis_tab()
-        st.divider()
-        st.subheader("🧬 性格プロファイルのチューニング")
         bf = st.session_state.memory["big_five"]
-        opts =
+        opts = [1, 2, 3, 4, 5]
         col1, col2 = st.columns(2)
         with col1:
-            e = st.select_slider("外向性 (内向的 ↔ 外向的)", options=opts, value=bf['E'])
-            a = st.select_slider("協調性 (合理的 ↔ 共感的)", options=opts, value=bf['A'])
-            c = st.select_slider("勤勉性 (即興的 ↔ 計画的)", options=opts, value=bf['C'])
+            e = st.select_slider("外向性", options=opts, value=bf['E'])
+            a = st.select_slider("協調性", options=opts, value=bf['A'])
+            c = st.select_slider("勤勉性", options=opts, value=bf['C'])
         with col2:
-            n = st.select_slider("神経症傾向 (冷静 ↔ 繊細)", options=opts, value=bf['N'])
-            o = st.select_slider("開放性 (保守的 ↔ 好奇心)", options=opts, value=bf['O'])
+            n = st.select_slider("神経症傾向", options=opts, value=bf['N'])
+            o = st.select_slider("開放性", options=opts, value=bf['O'])
         
-        if st.button("AIの思考回路に同期させる", use_container_width=True):
+        if st.button("プロファイルを同期"):
             st.session_state.memory["big_five"] = {"E": e, "A": a, "C": c, "N": n, "O": o}
             save_memory()
-            st.toast("プロファイルを更新しました。AIの回答が変化します。", icon="🧠")
+            st.success("同期完了！AIがあなたに合わせて進化しました。")
 
     with tab_blueprint:
-        st.header("📋 構造化アクションプラン")
-        st.info("AIが生成した行動計画やMermaid図解がここに自動集約されます。")
-        st.table(pd.DataFrame([{"フェーズ": "分析", "根拠": "メタ分析2023", "ステータス": "準備完了"}]))
+        st.header("📋 構造化プラン")
+        st.table(pd.DataFrame([{"項目": "データなし", "詳細": "チャットで計画を生成してください"}]))
 
     with tab_core:
-        st.header("⚙️ システム・メモリ")
         st.json(st.session_state.memory)
-        if st.button("メモリの初期化（ファクトリーリセット）"):
+        if st.button("リセット"):
             st.session_state.memory = load_memory()
             st.rerun()
-
-    st.sidebar.markdown("---")
-    st.sidebar.caption("Evidence Prime Pro v3.0 | 開発: 17yo Visionary")
 
 if __name__ == "__main__":
     main()
