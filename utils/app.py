@@ -16,7 +16,7 @@ except ImportError:
 
 # --- 1. 基本設定 ---
 st.set_page_config(
-    page_title="Evidence Prime Pro | Global",
+    page_title="Evidence Prime Pro",
     page_icon="🧬",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -68,8 +68,7 @@ def load_memory():
     return {
         "big_five": {"E": 3, "A": 3, "C": 3, "N": 3, "O": 3},
         "achievements": [{"date": datetime.now().strftime("%Y-%m-%d"), "score": 50}],
-        "language": "日本語",
-        "chat_summary": ""
+        "language": "日本語"
     }
 
 def save_memory():
@@ -84,11 +83,10 @@ if "messages" not in st.session_state:
 # --- 4. デザインエンジン（動的テーマ） ---
 def apply_ui_theme():
     st.sidebar.title("🛠️ Control Panel")
-    theme_choice = st.sidebar.select_slider("Theme", options=["Cyber", "Ocean", "Forest", "Lava"])
+    theme_choice = st.sidebar.select_slider("テーマ", options=["Cyber", "Ocean", "Forest", "Lava"])
     palette = {"Cyber": "#6366f1", "Ocean": "#0ea5e9", "Forest": "#10b981", "Lava": "#f43f5e"}
     main_color = palette[theme_choice]
     
-    # 言語切り替え機能の復活
     lang = st.sidebar.selectbox("Language", ["日本語", "English", "Korean", "Chinese"])
     st.session_state.memory["language"] = lang
 
@@ -108,7 +106,7 @@ def apply_ui_theme():
 
 main_color = apply_ui_theme()
 
-# --- 5. AIコア (A-Cモデル & バグ対策) ---
+# --- 5. AIコア (A-Cモデル) ---
 def run_ai_agent():
     api_key = st.secrets.get("GROQ_API_KEY")
     if not api_key:
@@ -119,17 +117,14 @@ def run_ai_agent():
     bf = st.session_state.memory["big_five"]
     lang = st.session_state.memory["language"]
     
-    # 性格適応ロジック
     strat = "構造的・論理的" if bf['C'] >= 4 else "ステップバイステップ・共感的"
     
     system_prompt = f"""
     あなたは『Evidence Prime Pro』です。言語は {lang} で回答してください。
     【A-Cモデル運用】
-    - A (Authority): 科学的根拠を引用し[ソース]を明記。
+    - A (Authority): 科学的根拠を引用。
     - B (Blueprint): 行動計画をテーブルやMermaid図解で提示。
-    - C (Context): 以下の特性に最適化せよ。
-      特性: 外向:{bf['E']}, 協調:{bf['A']}, 勤勉:{bf['C']}, 繊細:{bf['N']}, 開放:{bf['O']}
-      戦略: {strat}
+    - C (Context): 特性（外向:{bf['E']}, 協調:{bf['A']}, 勤勉:{bf['C']}, 繊細:{bf['N']}, 開放:{bf['O']}）に最適化せよ。
     """
     
     try:
@@ -146,7 +141,6 @@ def run_ai_agent():
 def main():
     tab_chat, tab_insight, tab_blueprint, tab_memory = st.tabs(["💬 Chat", "🧬 Insight", "📅 Plan", "📊 Bank"])
 
-    # --- Chat Tab ---
     with tab_chat:
         st.title("Evidence Prime Pro")
         for m in st.session_state.messages:
@@ -170,7 +164,6 @@ def main():
                     res_box.markdown(full_res)
                     st.session_state.messages.append({"role": "assistant", "content": full_res})
 
-    # --- Insight Tab (Big Five) ---
     with tab_insight:
         st.subheader("🧬 科学的プロファイル分析")
         if PLOTLY_AVAILABLE:
@@ -179,10 +172,11 @@ def main():
                 r=[bf['E'], bf['A'], bf['C'], bf['N'], bf['O']],
                 theta=['外向性', '協調性', '勤勉性', '神経症', '開放性'], fill='toself', line_color=main_color
             ))
-            fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=)), paper_bgcolor='rgba(0,0,0,0)', font_color="white")
+            # range を に修正 (バグ解消ポイント)
+            fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[1, 5])), paper_bgcolor='rgba(0,0,0,0)', font_color="white")
             st.plotly_chart(fig, use_container_width=True)
 
-        opts =
+        opts = [1, 2, 3, 4, 5]
         col1, col2 = st.columns(2)
         with col1:
             e = st.select_slider("外向性", options=opts, value=bf['E'])
@@ -192,26 +186,19 @@ def main():
             n = st.select_slider("神経症傾向", options=opts, value=bf['N'])
             o = st.select_slider("開放性", options=opts, value=bf['O'])
         
-        if st.button("プロファイルを永久同期 🧠"):
+        if st.button("プロファイルを同期 🧠"):
             st.session_state.memory["big_five"] = {"E":e, "A":a, "C":c, "N":n, "O":o}
             save_memory()
-            st.success("AIの思考回路をアップデートしました。")
+            st.success("同期完了！")
 
-    # --- Blueprint Tab (スケジュール & 図解) ---
     with tab_blueprint:
-        st.header("📅 週間アクションプラン")
-        # 簡易的な週間テーブルの表示機能
-        days = ["月", "火", "水", "木", "金", "土", "日"]
-        df_plan = pd.DataFrame({"曜": days, "重点項目": ["分析"]*7, "進捗": ["未着手"]*7})
+        st.header("📅 アクションプラン")
+        df_plan = pd.DataFrame({"曜": ["月","火","水","木","金","土","日"], "重点": ["分析"]*7, "進捗": ["未"]*7})
         st.table(df_plan)
-        st.download_button("プランをCSVで保存", df_plan.to_csv().encode('utf-8'), "blueprint.csv")
-        st.info("※チャットで詳細な指示を出すと、AIが個別のMermaid図解を生成します。")
 
-    # --- Memory Bank Tab ---
     with tab_memory:
-        st.header("📊 長期記憶バンク")
         st.json(st.session_state.memory)
-        if st.button("ファクトリーリセット"):
+        if st.button("リセット"):
             st.session_state.memory = load_memory()
             st.rerun()
 
