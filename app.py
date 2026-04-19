@@ -1,104 +1,96 @@
 import streamlit as st
 from groq import Groq
 
-# 1. ページ基本設定
-st.set_page_config(page_title="Evidence Prime Pro", page_icon="🧬", layout="wide")
+# --- 初期設定 ---
+st.set_page_config(page_title="Evidence Prime Pro", layout="wide")
 
-# カスタムCSS（エラーを修正済み：unsafe_allow_html=True）
-st.markdown("""
-    <style>
-    .main { background-color: #f0f2f6; }
-    .stButton>button { width: 100%; border-radius: 10px; height: 3em; background-color: #007BFF; color: white; }
-    </style>
-    """, unsafe_allow_html=True)
+# セッション状態の初期化（履歴や診断結果を保存）
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "personality_result" not in st.session_state:
+    st.session_state.personality_result = None
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
 
-# --- 2. 認証機能（合言葉） ---
-if "auth" not in st.session_state:
-    st.session_state.auth = False
-
-if not st.session_state.auth:
-    st.title("🔑 Evidence Prime Pro")
-    st.info("このアプリは招待制です。開発者から共有された合言葉を入力してください。")
-    
-    input_pwd = st.text_input("合言葉を入力", type="password")
+# --- 認証機能 ---
+if not st.session_state.authenticated:
+    st.title("🔐 Evidence Prime Pro - Login")
+    password = st.text_input("合言葉を入力してください", type="password")
     if st.button("ログイン"):
-        if input_pwd == st.secrets["APP_PASSWORD"]:
-            st.session_state.auth = True
+        if password == st.secrets["APP_PASSWORD"]:
+            st.session_state.authenticated = True
             st.rerun()
         else:
-            st.error("合言葉が正しくありません。")
+            st.error("合言葉が違います。")
     st.stop()
 
-# --- 3. 精密性格診断（初回ログイン時のみ） ---
-if "user_profile" not in st.session_state:
-    st.title("🧠 パーソナル診断")
-    st.write("科学的な分析結果をあなた専用にカスタマイズするため、5つの質問に答えてください。")
-    
-    with st.form("personality_form"):
-        col1, col2 = st.columns(2)
-        with col1:
-            q1 = st.select_slider("1. 予定は事前にしっかり組みたい", options=["全く違う", "普通", "超そう"])
-            q2 = st.select_slider("2. 新しい効率化術を試すのが好きだ", options=["全く違う", "普通", "超そう"])
-        with col2:
-            q3 = st.select_slider("3. 週末はアクティブに動きたい", options=["全く違う", "普通", "超そう"])
-            q4 = st.select_slider("4. 正論よりも寄り添いを重視する", options=["全く違う", "普通", "超そう"])
-        
-        q5 = st.select_slider("5. プレッシャーに強い方だ", options=["全く違う", "普通", "超そう"])
-        gender = st.radio("性別", ["男性", "女性", "回答しない"], horizontal=True)
-        
-        if st.form_submit_button("診断を完了してアプリを開始"):
-            st.session_state.user_profile = {
-                "planning": q1, "curiosity": q2, "activity": q3, "empathy": q4, "stress": q5, "gender": gender
-            }
-            st.rerun()
-    st.stop()
-
-# --- 4. メイン分析機能（認証＆診断完了後に表示） ---
-# Secretsにキーがない場合のエラー回避
-if "GROQ_API_KEY" not in st.secrets:
-    st.error("Groq APIキーがSecretsに設定されていません。")
-    st.stop()
-
+# --- クライアント設定 ---
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-st.sidebar.title("👤 Your Profile")
-p = st.session_state.user_profile
-st.sidebar.write(f"タイプ: {p['gender']} / {p['planning']}派")
-if st.sidebar.button("診断をやり直す"):
-    del st.session_state.user_profile
-    st.rerun()
+# --- UI：タブ機能 ---
+tab1, tab2, tab3 = st.tabs(["🧬 性格診断", "💬 メインチャット", "🛠️ エビデンス・ツール"])
 
-st.title("🧬 Evidence Prime Pro")
-query = st.text_input("知りたいトピックを入力してください", placeholder="例：朝のスムージーの効果、集中力を上げる方法など")
+# --- Tab 1: 性格診断 ---
+with tab1:
+    st.header("性格診断（Personalization）")
+    if not st.session_state.personality_result:
+        with st.form("personality_form"):
+            q1 = st.radio("新しいことに挑戦するのが好きですか？", ["はい", "いいえ"])
+            q2 = st.radio("計画を立てるのが得意ですか？", ["はい", "いいえ"])
+            # 他の質問も同様に追加可能
+            submitted = st.form_submit_button("診断する")
+            if submitted:
+                # 簡易的な診断ロジック（後で詳細化可能）
+                res = f"挑戦的: {q1}, 計画的: {q2}"
+                st.session_state.personality_result = res
+                st.success("診断完了！内容を保存しました。")
+    else:
+        st.info(f"現在の診断結果: {st.session_state.personality_result}")
+        if st.button("再診断する"):
+            st.session_state.personality_result = None
+            st.rerun()
 
-if query:
-    with st.spinner("Llama 3.3 70Bがエビデンスを精査中..."):
-        # プロファイルに基づいたパーソナライズ命令
-        tone = "共感重視で優しく" if p['empathy'] == "超そう" else "論理重視で端的に"
-        detail = "ステップバイステップの計画" if p['planning'] == "超そう" else "即効性のあるヒント"
-        
-        system_prompt = f"""
-        あなたは科学的エビデンスの専門家です。17歳の開発者のパートナーとして、以下のユーザーに最適化された回答をしてください。
-        
-        【ユーザー情報】
-        性別: {p['gender']}, 計画性: {p['planning']}, 好奇心: {p['curiosity']}, メンタル耐性: {p['stress']}
-        
-        【回答ルール】
-        1. ティア表: 科学的根拠の強さをS〜Cでランク付け
-        2. フローチャート: {detail}をテキストで作成
-        3. ライフハック: ユーザーの性格に合わせた具体的なアドバイス
-        4. カレンダー案: 性格に合わせたスケジュール提案
-        
-        トーン: {tone}
-        """
+# --- Tab 2: メインチャット (連続質問可能) ---
+with tab2:
+    st.header("Evidence Chat")
+    
+    # 履歴の表示
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
-        chat_completion = client.chat.completions.create(
-            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": query}],
-            model="llama-3.3-70b-versatile",
-        )
+    # ユーザー入力
+    if prompt := st.chat_input("質問を入力してください（例：効率的な勉強法は？）"):
+        # 履歴に追加
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        # AIへのリクエスト（診断結果をシステムプロンプトに含める）
+        system_prompt = f"あなたは科学的根拠に基づき回答するプロです。ユーザーの性格: {st.session_state.personality_result}"
         
-        # 結果表示
-        st.markdown(chat_completion.choices.message.content)
-        
-        # YouTube検索リンク
-        st.markdown(f"--- \n### 🎥 関連動画をチェック\n[YouTubeで「{query} 科学」を検索](https://youtube.com{query}+科学)")
+        # 履歴をすべて含めてAPIに投げることで「連続質問」に対応
+        try:
+            full_messages = [{"role": "system", "content": system_prompt}] + st.session_state.messages
+            
+            response = client.chat.completions.create(
+                messages=full_messages,
+                model="llama-3.3-70b-versatile",
+            )
+            
+            # 【ダブルチェック済み】choices[0] を指定
+            answer = response.choices[0].message.content
+            
+            with st.chat_message("assistant"):
+                st.markdown(answer)
+            
+            # AIの回答も履歴に保存
+            st.session_state.messages.append({"role": "assistant", "content": answer})
+            
+        except Exception as e:
+            st.error(f"エラーが発生しました: {e}")
+
+# --- Tab 3: エビデンス・ツール ---
+with tab3:
+    st.header("Special Tools")
+    st.write("ティア表作成やライフハック表示機能をここに実装予定。")
