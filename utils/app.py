@@ -779,9 +779,7 @@ def evidence_prime_pro_core():
 def render_workspace_sidebar():
     """ワークスペース管理UIをサイドバーに統合（エラー修正版）"""
     st.sidebar.markdown("---")
-    st.sidebar.subheader("🚀 My Workspaces")
-    
-
+     
 def save_persistence_data():
     """全スレッド状態を JSON に物理保存"""
     memory_path = "user_memory_global.json"
