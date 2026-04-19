@@ -701,7 +701,7 @@ def evidence_prime_pro_core():
             input_pass = st.text_input("Enter Passphrase", type="password")
             if input_pass:
                 # Secretsから合言葉をチェック
-                if input_pass == st.secrets["absolute_proof"]:
+                if input_pass == st.secrets["PASSKEY"]:
                     st.session_state.authenticated = True
                     st.success("✅ Identity Verified.")
                     st.balloons()
