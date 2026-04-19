@@ -692,14 +692,16 @@ def evidence_prime_pro_core():
     if not st.session_state.authenticated:
         st.title("🔐 System Access")
         input_pass = st.text_input("Enter Passphrase", type="password")
-        # secrets.toml の absolute_proof と比較
+        
+        # ここを st.secrets["password"] に変更！
         if input_pass:
-            if input_pass == st.secrets["absolute_proof"]:
+            if input_pass == st.secrets["password"]:
                 st.session_state.authenticated = True
                 st.rerun()
             else:
                 st.error("❌ Access Denied.")
         st.stop()
+ 
 
     # 2. APIキー取得
     api_key = st.secrets.get("GROQ_API_KEY")
