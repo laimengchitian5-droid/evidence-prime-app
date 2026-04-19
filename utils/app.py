@@ -693,21 +693,23 @@ def evidence_prime_pro_core():
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
 
-    if not st.session_state.authenticated:
+      if not st.session_state.authenticated:
         st.markdown("<h1 style='text-align: center;'>🔐 System Access</h1>", unsafe_allow_html=True)
-        # 画面中央に認証フォームを配置
         _, col2, _ = st.columns([1, 2, 1])
         with col2:
-            input_pass = st.text_input("Enter Passphrase", type="password", help="17歳の開発者が設定した合言葉を入力してください")
+            input_pass = st.text_input("Enter Passphrase", type="password")
+            
+            # ここを正確に修正：if を忘れずに入れ、secretsを正しく参照する
             if input_pass:
-            if   input_pass == st.secrets["absolute_proof"]:
+                if input_pass == st.secrets["absolute_proof"]:
                     st.session_state.authenticated = True
-                    st.success("✅ Identity Verified. Core Systems Online.")
+                    st.success("✅ Identity Verified.")
                     st.balloons()
                     st.rerun()
                 else:
-                    st.error("❌ Access Denied. Fingerprint Mismatch.")
+                    st.error("❌ Access Denied.")
         st.stop()
+
 
     # 2. AI基盤 & APIキーの検証
     # Secrets優先。なければサイドバーから入力を受け付ける
