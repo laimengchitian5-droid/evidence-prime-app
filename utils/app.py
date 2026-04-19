@@ -682,7 +682,7 @@ def integrated_workspace_system():
 
 # --- 実行 ---
 integrated_workspace_system()
-# --- 685行目以降：Security, Workspace & AI Logic Integration ---
+# --- 685行目以降：Security, Workspace & AI Logic Integration (Final Fix) ---
 
 def evidence_prime_pro_core():
     """
@@ -694,17 +694,19 @@ def evidence_prime_pro_core():
         st.session_state.authenticated = False
 
     if not st.session_state.authenticated:
-        st.markdown(f"<h1 style='text-align: center;'>🔐 System Access</h1>", unsafe_allow_html=True)
-        col1, col2, col3 = st.columns([1, 2, 1])
+        st.markdown("<h1 style='text-align: center;'>🔐 System Access</h1>", unsafe_allow_html=True)
+        # 画面中央に認証フォームを配置
+        _, col2, _ = st.columns([1, 2, 1])
         with col2:
             input_pass = st.text_input("Enter Passphrase", type="password", help="17歳の開発者が設定した合言葉を入力してください")
-            if input_pass == st.secrets.get("absolute_proof", "17admin"):
-                st.session_state.authenticated = True
-                st.success("✅ Identity Verified. Core Systems Online.")
-                st.balloons()
-                st.rerun()
-            elif input_pass:
-                st.error("❌ Access Denied. Fingerprint Mismatch.")
+            if input_pass:
+                if input_pass == st.secrets.get("absolute_proof", "17admin"):
+                    st.session_state.authenticated = True
+                    st.success("✅ Identity Verified. Core Systems Online.")
+                    st.balloons()
+                    st.rerun()
+                else:
+                    st.error("❌ Access Denied. Fingerprint Mismatch.")
         st.stop()
 
     # 2. AI基盤 & APIキーの検証
@@ -729,7 +731,7 @@ def evidence_prime_pro_core():
     if "active_tab" not in st.session_state:
         st.session_state.active_tab = "Main"
 
-    # 4. サイドバーUI（タブ管理）
+    # 4. サイドバーUI（タブ管理）を実行
     render_workspace_sidebar()
 
     # 5. メインスペース（スレッド描画 & 思考）
@@ -750,21 +752,16 @@ def evidence_prime_pro_core():
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # AIの思考・生成プロセス
+        # AIの思考プロセス
         with st.chat_message("assistant"):
-            # 【注意】ここを既存のAI Engine呼び出し関数に繋ぐ
-            # 例: response, blueprint = call_groq_engine(prompt, api_key)
+            # --- ここに既存の AI Engine 呼び出し関数を接続 ---
+            # 例: response_text, blueprint_data = call_your_ai_engine(prompt, api_key)
             
-            # --- プレースホルダー（実際の関数に置き換え） ---
-            full_response = "A-Cモデルに基づき、科学的根拠を確認中..."
-            placeholder = st.empty()
-            # 実際の実装ではここで Groq API からストリーミング取得
+            # 以下はプレースホルダーです（動作確認用）
+            response_text = "分析完了。Blueprintを生成しました。"
+            blueprint_data = [["Step", "Plan", "Evidence"], ["1", "Initial Demo", "System Ready"]]
             
-            # 仮のデータ構造
-            response_text = "分析が完了しました。あなたの性格（Context）に最適化した行動計画（Blueprint）を提示します。"
-            blueprint_data = [["Step", "Action Item", "Evidence"], ["1", "朝の5分瞑想", "Scientific Report #102"]]
-            
-            placeholder.markdown(response_text)
+            st.markdown(response_text)
             if blueprint_data:
                 st.table(blueprint_data)
 
@@ -780,45 +777,48 @@ def evidence_prime_pro_core():
             st.rerun()
 
 def render_workspace_sidebar():
-    """ワークスペース管理UIをサイドバーに統合"""
+    """ワークスペース管理UIをサイドバーに統合（エラー修正版）"""
     st.sidebar.markdown("---")
     st.sidebar.subheader("🚀 My Workspaces")
     
+    # 新規タブ作成
     new_tab = st.sidebar.text_input("New Space", key="tab_creator", placeholder="Name and press Enter")
     if new_tab and new_tab not in st.session_state.tabs:
         st.session_state.tabs[new_tab] = []
         st.session_state.active_tab = new_tab
         st.rerun()
 
+    # タブ一覧ボタンの描画
     for t_name in list(st.session_state.tabs.keys()):
+        # カラムをリストとして取得
         cols = st.sidebar.columns([0.8, 0.2])
-        if cols.button(f"📂 {t_name}", key=f"sel_{t_name}", use_container_width=True):
+        
+        # cols[0] = 左側のメインボタン, cols[1] = 右側の削除ボタン
+        if cols[0].button(f"📂 {t_name}", key=f"sel_{t_name}", use_container_width=True):
             st.session_state.active_tab = t_name
             st.rerun()
-        if t_name != "Main" and cols.button("🗑️", key=f"del_{t_name}"):
-            del st.session_state.tabs[t_name]
-            st.session_state.active_tab = "Main"
-            st.rerun()
+            
+        if t_name != "Main":
+            if cols[1].button("🗑️", key=f"del_{t_name}"):
+                del st.session_state.tabs[t_name]
+                st.session_state.active_tab = "Main"
+                st.rerun()
 
 def save_persistence_data():
-    """現在の全状態を JSON に物理保存"""
+    """全スレッド状態を JSON に物理保存"""
     memory_path = "user_memory_global.json"
     try:
-        # 既存データの読み込みを試行
         try:
             with open(memory_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
         except:
             data = {}
-            
-        # タブ情報を更新
         data["threads"] = st.session_state.tabs
-        
         with open(memory_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4, ensure_ascii=False)
     except Exception as e:
-        st.error(f"Persistence Error: {e}")
+        st.sidebar.error(f"Save Error: {e}")
 
-# --- アプリケーション起動 ---
+# --- アプリケーション最終起動 ---
 if __name__ == "__main__":
     evidence_prime_pro_core()
